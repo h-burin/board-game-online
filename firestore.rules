@@ -1,0 +1,85 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================
+    // Rooms Collection
+    // =========================================
+    match /rooms/{roomId} {
+      // อนุญาตให้ทุกคนอ่านข้อมูลห้อง
+      allow read: if true;
+
+      // อนุญาตให้สร้างห้องใหม่ได้
+      allow create: if request.resource.data.keys().hasAll(['id', 'code', 'hostId', 'status', 'maxPlayers', 'currentPlayers', 'createdAt', 'updatedAt'])
+                    && request.resource.data.status == 'waiting'
+                    && request.resource.data.maxPlayers > 0
+                    && request.resource.data.currentPlayers >= 0;
+
+      // อนุญาตให้อัพเดทได้ทุกคน (สำหรับ join/leave room)
+      // ในอนาคตอาจจำกัดให้เฉพาะ host หรือ players ในห้อง
+      allow update: if true;
+
+      // อนุญาตให้ลบได้เฉพาะเมื่อห้องว่าง
+      allow delete: if resource.data.currentPlayers == 0;
+    }
+
+    // =========================================
+    // Players Collection
+    // =========================================
+    match /players/{playerId} {
+      // อนุญาตให้ทุกคนอ่านข้อมูลผู้เล่น
+      allow read: if true;
+
+      // อนุญาตให้สร้างผู้เล่นใหม่
+      allow create: if request.resource.data.keys().hasAll(['id', 'name', 'isHost', 'isReady', 'isOnline', 'joinedAt'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() >= 2
+                    && request.resource.data.name.size() <= 20;
+
+      // อนุญาตให้อัพเดทข้อมูลตัวเอง
+      allow update: if true;
+
+      // อนุญาตให้ลบผู้เล่น
+      allow delete: if true;
+    }
+
+    // =========================================
+    // Chat Messages Collection
+    // =========================================
+    match /chat/{roomId}/messages/{messageId} {
+      // อนุญาตให้อ่านข้อความในห้องที่เข้าร่วม
+      allow read: if true;
+
+      // อนุญาตให้ส่งข้อความได้
+      allow create: if request.resource.data.keys().hasAll(['id', 'playerId', 'playerName', 'message', 'timestamp', 'type'])
+                    && request.resource.data.message is string
+                    && request.resource.data.message.size() > 0
+                    && request.resource.data.message.size() <= 500;
+
+      // ไม่อนุญาตให้แก้ไขหรือลบข้อความ
+      allow update, delete: if false;
+    }
+
+    // =========================================
+    // Game Results Collection
+    // =========================================
+    match /results/{resultId} {
+      // อนุญาตให้ทุกคนอ่านผลเกม
+      allow read: if true;
+
+      // อนุญาตให้สร้างผลเกม
+      allow create: if request.resource.data.keys().hasAll(['roomId', 'gameType', 'finishedAt']);
+
+      // ไม่อนุญาตให้แก้ไขหรือลบผลเกม
+      allow update, delete: if false;
+    }
+
+    // =========================================
+    // Test Collection (for testing only)
+    // =========================================
+    match /test/{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
