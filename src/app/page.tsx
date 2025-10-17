@@ -20,7 +20,7 @@ export default function Home() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-col sm:flex-row">
             <Link
               href="/create-room"
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xl font-bold py-4 px-8 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl flex items-center justify-center gap-3 no-underline"
