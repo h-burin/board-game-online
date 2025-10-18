@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayers } from '@/lib/hooks/usePlayers';
+import { useGames } from '@/lib/hooks/useGames';
 import { kickPlayer, toggleReady, leaveRoom } from '@/lib/firebase/firestore';
 
 interface LobbyPageProps {
@@ -21,6 +22,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   const { room, loading: roomLoading, error: roomError } = useRoom(roomId);
   const { players, loading: playersLoading, error: playersError } = usePlayers(roomId);
+  const { games } = useGames();
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -110,6 +112,10 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   // Get current player
   const currentPlayer = players.find(p => p.id === playerId);
 
+  // Get selected game details
+  const selectedGame = games.find(g => g.id === room?.gameId);
+  const minPlayers = selectedGame?.MinPlayer || 2;
+
   // Handle Kick Player
   const handleKick = async (playerIdToKick: string, playerName: string) => {
     const confirmed = confirm(`ต้องการเตะ ${playerName} ออกจากห้องหรือไม่?`);
@@ -176,7 +182,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   // Handle Start Game
   const handleStartGame = async () => {
-    if (!isHost || !room || room.currentPlayers < 2 || !playerId) return;
+    if (!isHost || !room || room.currentPlayers < minPlayers || !playerId) return;
 
     setActionLoading(true);
     setActionError(null);
@@ -345,14 +351,14 @@ export default function LobbyPage({ params }: LobbyPageProps) {
               <>
                 <button
                   onClick={handleStartGame}
-                  disabled={room.currentPlayers < 2 || actionLoading}
+                  disabled={room.currentPlayers < minPlayers || actionLoading}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none"
                 >
                   {actionLoading ? 'กำลังเริ่มเกม...' : 'เริ่มเกม'}
                 </button>
-                {room.currentPlayers < 2 && (
+                {room.currentPlayers < minPlayers && (
                   <p className="text-center text-yellow-200 text-sm">
-                    ต้องมีผู้เล่นอย่างน้อย 2 คน
+                    ต้องมีผู้เล่นอย่างน้อย {minPlayers} คน
                   </p>
                 )}
               </>
