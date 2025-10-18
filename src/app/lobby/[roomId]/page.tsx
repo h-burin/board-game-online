@@ -76,8 +76,10 @@ export default function LobbyPage({ params }: LobbyPageProps) {
         localStorage.removeItem(`room_${roomId}_playerId`);
         localStorage.removeItem('playerId');
 
-        // Redirect to join page
-        router.push('/join-room');
+        // Redirect to join page after a short delay
+        setTimeout(() => {
+          router.push('/join-room');
+        }, 2000);
         return;
       }
     }
@@ -110,7 +112,9 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   // Handle Kick Player
   const handleKick = async (playerIdToKick: string, playerName: string) => {
-    if (!confirm(`ต้องการเตะ ${playerName} ออกจากห้องหรือไม่?`)) {
+    const confirmed = confirm(`ต้องการเตะ ${playerName} ออกจากห้องหรือไม่?`);
+
+    if (!confirmed) {
       return;
     }
 
@@ -150,7 +154,9 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   const handleLeaveRoom = async () => {
     if (!playerId) return;
 
-    if (!confirm('ต้องการออกจากห้องหรือไม่?')) {
+    const confirmed = confirm('ต้องการออกจากห้องหรือไม่?');
+
+    if (!confirmed) {
       return;
     }
 

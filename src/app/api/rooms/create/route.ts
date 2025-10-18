@@ -1,12 +1,12 @@
 /**
  * API Route: สร้างห้องเกมใหม่
  * POST /api/rooms/create
- * Body: { playerName: string, maxPlayers: number }
+ * Body: { playerName: string, gameId: string, maxPlayers: number }
  * Response: { success: true, roomId: string, code: string, playerId: string }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { generateRoomCode } from '@/lib/utils/roomCode';
 
@@ -14,9 +14,9 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { playerName, maxPlayers } = body;
+    const { playerName, gameId, maxPlayers } = body;
 
-    // Validation
+    // Validation - Player Name
     if (!playerName || typeof playerName !== 'string') {
       return NextResponse.json(
         { success: false, error: 'กรุณากรอกชื่อผู้เล่น' },
@@ -38,6 +38,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validation - Game ID
+    if (!gameId || typeof gameId !== 'string') {
+      return NextResponse.json(
+        { success: false, error: 'กรุณาเลือกเกม' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch game details to validate maxPlayers
+    const gameRef = doc(db, 'games', gameId);
+    const gameSnap = await getDoc(gameRef);
+
+    if (!gameSnap.exists()) {
+      return NextResponse.json(
+        { success: false, error: 'ไม่พบเกมที่เลือก' },
+        { status: 404 }
+      );
+    }
+
+    const gameData = gameSnap.data();
+    const minPlayers = gameData.MinPlayer || 2;
+    const maxPlayersAllowed = gameData.MaxPlayer || 8;
+
+    // Validation - Max Players
     if (!maxPlayers || typeof maxPlayers !== 'number') {
       return NextResponse.json(
         { success: false, error: 'กรุณาระบุจำนวนผู้เล่นสูงสุด' },
@@ -45,9 +69,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (maxPlayers < 2 || maxPlayers > 8) {
+    if (maxPlayers < minPlayers || maxPlayers > maxPlayersAllowed) {
       return NextResponse.json(
-        { success: false, error: 'จำนวนผู้เล่นต้องอยู่ระหว่าง 2-8 คน' },
+        {
+          success: false,
+          error: `จำนวนผู้เล่นต้องอยู่ระหว่าง ${minPlayers}-${maxPlayersAllowed} คน สำหรับเกมนี้`
+        },
         { status: 400 }
       );
     }
@@ -69,7 +96,8 @@ export async function POST(request: NextRequest) {
     const roomData = {
       id: roomId,
       code: code,
-      gameType: 'mock-game',
+      gameId: gameId, // Store selected game ID
+      gameType: gameData.name || 'Unknown Game', // Store game name for display
       hostId: playerId,
       status: 'waiting',
       maxPlayers: maxPlayers,

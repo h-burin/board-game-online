@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useGames } from '@/lib/hooks/useGames';
 
 // API Response Types
 interface CreateRoomResponse {
@@ -14,17 +15,36 @@ interface CreateRoomResponse {
 }
 
 export default function CreateRoomPage() {
+  // Load games from Firestore
+  const { games, loading: gamesLoading, error: gamesError } = useGames();
+
   const [formData, setFormData] = useState({
     playerName: '',
+    gameId: '', // Selected game ID
     maxPlayers: 4,
   });
 
   const [errors, setErrors] = useState({
     playerName: '',
+    gameId: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  // Get selected game details
+  const selectedGame = games.find((game) => game.id === formData.gameId);
+
+  // Update maxPlayers when game changes
+  useEffect(() => {
+    if (selectedGame) {
+      // Set maxPlayers to MinPlayer by default when game is selected
+      setFormData((prev) => ({
+        ...prev,
+        maxPlayers: selectedGame.MinPlayer,
+      }));
+    }
+  }, [selectedGame]);
 
   const handlePlayerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -40,6 +60,18 @@ export default function CreateRoomPage() {
     }
   };
 
+  const handleGameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const gameId = e.target.value;
+    setFormData({ ...formData, gameId });
+
+    // Validation
+    if (!gameId) {
+      setErrors({ ...errors, gameId: 'กรุณาเลือกเกม' });
+    } else {
+      setErrors({ ...errors, gameId: '' });
+    }
+  };
+
   const handleMaxPlayersChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFormData({ ...formData, maxPlayers: parseInt(e.target.value) });
   };
@@ -50,7 +82,7 @@ export default function CreateRoomPage() {
     // Clear previous errors
     setApiError(null);
 
-    // Validation
+    // Validation - Player Name
     if (!formData.playerName.trim()) {
       setErrors({ ...errors, playerName: 'กรุณากรอกชื่อผู้เล่น' });
       return;
@@ -58,6 +90,12 @@ export default function CreateRoomPage() {
 
     if (formData.playerName.length > 20) {
       setErrors({ ...errors, playerName: 'ชื่อต้องไม่เกิน 20 ตัวอักษร' });
+      return;
+    }
+
+    // Validation - Game
+    if (!formData.gameId) {
+      setErrors({ ...errors, gameId: 'กรุณาเลือกเกม' });
       return;
     }
 
@@ -77,6 +115,7 @@ export default function CreateRoomPage() {
         },
         body: JSON.stringify({
           playerName: formData.playerName.trim(),
+          gameId: formData.gameId,
           maxPlayers: formData.maxPlayers,
         }),
       });
@@ -171,6 +210,48 @@ export default function CreateRoomPage() {
               </div>
             </div>
 
+            {/* Game Selection Dropdown */}
+            <div>
+              <label htmlFor="gameId" className="block text-white text-lg font-semibold mb-2">
+                เลือกเกม <span className="text-red-400">*</span>
+              </label>
+              {gamesLoading ? (
+                <div className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white/50 flex items-center justify-center">
+                  <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  กำลังโหลดรายการเกม...
+                </div>
+              ) : gamesError ? (
+                <div className="w-full px-4 py-3 rounded-xl bg-red-500/20 border-2 border-red-500/50 text-red-200">
+                  {gamesError}
+                </div>
+              ) : (
+                <select
+                  id="gameId"
+                  value={formData.gameId}
+                  onChange={handleGameChange}
+                  disabled={isLoading || games.length === 0}
+                  className={`w-full px-4 py-3 rounded-xl bg-white/20 border-2 ${
+                    errors.gameId ? 'border-red-500' : 'border-white/30'
+                  } text-white focus:outline-none focus:border-green-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <option value="" className="bg-gray-900">
+                    -- เลือกเกม --
+                  </option>
+                  {games.map((game) => (
+                    <option key={game.id} value={game.id} className="bg-gray-900">
+                      {game.name} ({game.MinPlayer}-{game.MaxPlayer} คน)
+                    </option>
+                  ))}
+                </select>
+              )}
+              {errors.gameId && (
+                <p className="text-red-400 text-sm mt-2">{errors.gameId}</p>
+              )}
+            </div>
+
             {/* Max Players Dropdown */}
             <div>
               <label htmlFor="maxPlayers" className="block text-white text-lg font-semibold mb-2">
@@ -180,21 +261,39 @@ export default function CreateRoomPage() {
                 id="maxPlayers"
                 value={formData.maxPlayers}
                 onChange={handleMaxPlayersChange}
-                disabled={isLoading}
+                disabled={isLoading || !selectedGame}
                 className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white focus:outline-none focus:border-green-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {[2, 3, 4, 5, 6, 7, 8].map((num) => (
-                  <option key={num} value={num} className="bg-gray-900">
-                    {num} คน
+                {selectedGame ? (
+                  // Generate options based on selected game's MinPlayer - MaxPlayer
+                  Array.from(
+                    { length: selectedGame.MaxPlayer - selectedGame.MinPlayer + 1 },
+                    (_, i) => selectedGame.MinPlayer + i
+                  ).map((num) => (
+                    <option key={num} value={num} className="bg-gray-900">
+                      {num} คน
+                    </option>
+                  ))
+                ) : (
+                  <option value={4} className="bg-gray-900">
+                    กรุณาเลือกเกมก่อน
                   </option>
-                ))}
+                )}
               </select>
+              {selectedGame && (
+                <p className="text-green-200 text-sm mt-2">
+                  เกมนี้รองรับ {selectedGame.MinPlayer}-{selectedGame.MaxPlayer} คน
+                  {selectedGame.MaxPlayer > 20 && (
+                    <span className="text-yellow-300 ml-2">(⚠️ จำนวนผู้เล่นสูงมาก โปรดตรวจสอบข้อมูลเกม)</span>
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={!!errors.playerName || !formData.playerName.trim() || isLoading}
+              disabled={!!errors.playerName || !!errors.gameId || !formData.playerName.trim() || !formData.gameId || isLoading}
               className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none flex items-center justify-center gap-3"
             >
               {isLoading ? (

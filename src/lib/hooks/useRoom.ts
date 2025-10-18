@@ -43,7 +43,8 @@ export function useRoom(roomId: string): UseRoomResult {
           const roomData: Room = {
             id: data.id,
             code: data.code,
-            gameType: data.gameType,
+            gameId: data.gameId || '', // Game ID (required)
+            gameType: data.gameType, // Game name for display
             hostId: data.hostId,
             status: data.status,
             maxPlayers: data.maxPlayers,

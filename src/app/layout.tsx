@@ -20,7 +20,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th" className={kanit.className}>
-      <body>{children}</body>
+      <body>
+        {children}
+      </body>
     </html>
   );
 }

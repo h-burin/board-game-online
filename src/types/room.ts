@@ -6,12 +6,12 @@
 export interface Room {
   id: string;
   code: string; // 6-digit room code
-  gameType?: string;
+  gameId: string; // Reference to games collection
+  gameType?: string; // Game name for display
   hostId: string;
   status: 'waiting' | 'playing' | 'finished';
   maxPlayers: number;
   currentPlayers: number;
-  gameId?: string; // Reference to game document when playing
   createdAt: Date;
   updatedAt: Date;
 }
