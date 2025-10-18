@@ -19,20 +19,12 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (singleton pattern)
-let app: FirebaseApp;
-let db: Firestore;
-let realtimeDb: Database;
-
-if (getApps().length === 0) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApps()[0];
-}
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Initialize Firestore (for room metadata, player info)
-db = getFirestore(app);
+const db: Firestore = getFirestore(app);
 
 // Initialize Realtime Database (for game state, real-time updates)
-realtimeDb = getDatabase(app);
+const realtimeDb: Database = getDatabase(app);
 
 export { app, db, realtimeDb };

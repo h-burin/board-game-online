@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import RotatingText from "@/components/reactbits/RotatingText";
+// import RotatingText from "@/components/reactbits/RotatingText";
 import { FaPlus, FaPeopleGroup } from "react-icons/fa6";
 
 export default function Home() {

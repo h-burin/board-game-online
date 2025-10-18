@@ -90,8 +90,8 @@ export default function GamePage({ params }: GamePageProps) {
     );
   }
 
-  // Get current player
-  const currentPlayer = players.find(p => p.id === playerId);
+  // Get current player (for future use)
+  // const currentPlayer = players.find(p => p.id === playerId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
