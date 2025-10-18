@@ -12,6 +12,7 @@ import Link from 'next/link';
 import { useRoom } from '@/lib/hooks/useRoom';
 import { usePlayers } from '@/lib/hooks/usePlayers';
 import { useGames } from '@/lib/hooks/useGames';
+import ItoGame from '@/components/games/ItoGame';
 
 interface GamePageProps {
   params: Promise<{
@@ -178,13 +179,17 @@ export default function GamePage({ params }: GamePageProps) {
           </div>
         </div>
 
-        {/* Placeholder for game content */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mt-6 border border-white/20">
-          <div className="text-center text-white/50">
-            <p className="text-xl mb-4">🎮 Game Content</p>
-            <p className="text-sm">เนื้อหาเกมจะแสดงที่นี่</p>
+        {/* Game Content */}
+        {room.gameId === 'BWLxJkh45e6RiALRBmcl' && playerId && room.gameSessionId ? (
+          <ItoGame sessionId={room.gameSessionId} playerId={playerId} />
+        ) : (
+          <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mt-6 border border-white/20">
+            <div className="text-center text-white/50">
+              <p className="text-xl mb-4">🎮 Game Content</p>
+              <p className="text-sm">เกมนี้ยังไม่รองรับ</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <style jsx>{`

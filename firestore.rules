@@ -76,6 +76,36 @@ service cloud.firestore {
     }
 
     // =========================================
+    // ITO Questions Collection
+    // =========================================
+    match /ito_questions/{questionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // =========================================
+    // Game Sessions Collection
+    // =========================================
+    match /game_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if true;
+
+      // Player Answers Subcollection
+      match /player_answers/{playerId} {
+        allow read: if true;
+        allow write: if true;
+      }
+
+      // Votes Subcollection
+      match /votes/{playerId} {
+        allow read: if true;
+        allow write: if true;
+      }
+    }
+
+    // =========================================
     // Test Collection (for testing only)
     // =========================================
     match /test/{document=**} {

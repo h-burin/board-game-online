@@ -8,6 +8,7 @@ export interface Room {
   code: string; // 6-digit room code
   gameId: string; // Reference to games collection
   gameType?: string; // Game name for display
+  gameSessionId?: string; // Reference to game_sessions collection
   hostId: string;
   status: 'waiting' | 'playing' | 'finished';
   maxPlayers: number;

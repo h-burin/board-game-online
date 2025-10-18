@@ -45,6 +45,7 @@ export function useRoom(roomId: string): UseRoomResult {
             code: data.code,
             gameId: data.gameId || '', // Game ID (required)
             gameType: data.gameType, // Game name for display
+            gameSessionId: data.gameSessionId, // Game session ID
             hostId: data.hostId,
             status: data.status,
             maxPlayers: data.maxPlayers,

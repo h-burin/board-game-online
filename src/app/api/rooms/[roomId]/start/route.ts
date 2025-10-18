@@ -18,6 +18,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { initializeItoGame } from '@/lib/firebase/ito';
 
 interface StartGameRequest {
   hostId: string;
@@ -120,29 +121,42 @@ export async function POST(
       );
     }
 
-    // Get first player for currentTurn
-    const firstPlayer = playersSnap.docs[0];
-    const firstPlayerId = firstPlayer.id;
-
-    // Create game session document (different from games collection which stores game types)
+    // Create game session document
     const gameSessionsRef = collection(db, 'game_sessions');
     const gameSessionDoc = doc(gameSessionsRef);
     const gameSessionId = gameSessionDoc.id;
 
+    // Base game session data
     const gameSessionData = {
       id: gameSessionId,
       roomId: roomId,
-      gameId: roomData.gameId, // Reference to game type (BWLxJkh45e6RiALRBmcl)
+      gameId: roomData.gameId, // Reference to game type
       gameType: roomData.gameType, // Game name
-      currentTurn: firstPlayerId,
-      turnNumber: 0,
-      state: {},
       startedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
 
-    // Save game session document
+    // Save base game session document
     await setDoc(gameSessionDoc, gameSessionData);
+
+    // Initialize game-specific logic
+    if (roomData.gameId === 'BWLxJkh45e6RiALRBmcl') {
+      // ITO Game - iTo
+      const playerIds = playersSnap.docs.map((doc) => doc.id);
+      const playerNames: { [key: string]: string } = {};
+      playersSnap.docs.forEach((doc) => {
+        playerNames[doc.id] = doc.data().name || 'Unknown';
+      });
+
+      const result = await initializeItoGame(gameSessionId, roomId, playerIds, playerNames);
+
+      if (!result) {
+        return NextResponse.json(
+          { success: false, error: 'ไม่สามารถเริ่มเกม ITO ได้' },
+          { status: 500 }
+        );
+      }
+    }
 
     // Update room status to 'playing'
     await updateDoc(roomRef, {
