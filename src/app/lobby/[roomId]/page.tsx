@@ -116,6 +116,14 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   const selectedGame = games.find(g => g.id === room?.gameId);
   const minPlayers = selectedGame?.MinPlayer || 2;
 
+  // Check if all players are ready (except host)
+  const allPlayersReady = players.every(player =>
+    player.isReady === true || player.isHost === true
+  );
+
+  // Check if game can start
+  const canStartGame = room && room.currentPlayers >= minPlayers && allPlayersReady;
+
   // Handle Kick Player
   const handleKick = async (playerIdToKick: string, playerName: string) => {
     const confirmed = confirm(`ต้องการเตะ ${playerName} ออกจากห้องหรือไม่?`);
@@ -182,7 +190,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   // Handle Start Game
   const handleStartGame = async () => {
-    if (!isHost || !room || room.currentPlayers < minPlayers || !playerId) return;
+    if (!isHost || !room || !canStartGame || !playerId) return;
 
     setActionLoading(true);
     setActionError(null);
@@ -201,13 +209,15 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
       const data = await response.json();
 
+      console.log('API Response:', { status: response.status, data });
+
       if (data.success) {
-        console.log('✅ Game started:', data.gameId);
+        console.log('✅ Game started:', data.gameSessionId);
         // Redirect will happen automatically via useEffect when room status changes
       } else {
         const errorMsg = data.error || 'เกิดข้อผิดพลาดในการเริ่มเกม';
         setActionError(errorMsg);
-        console.error('❌ Start game error:', data);
+        console.error('❌ Start game error:', { status: response.status, data });
         setActionLoading(false);
       }
     } catch (error) {
@@ -278,7 +288,11 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
             {/* Status */}
             <div className="text-lg text-blue-200">
-              {room.currentPlayers >= 2 ? '✓ พร้อมเริ่มเกม' : 'รอผู้เล่น...'}
+              {canStartGame
+                ? '✓ พร้อมเริ่มเกม'
+                : room.currentPlayers < minPlayers
+                ? `รอผู้เล่น... (${room.currentPlayers}/${minPlayers})`
+                : 'รอผู้เล่นกด Ready...'}
             </div>
 
             {/* Player Count */}
@@ -351,14 +365,16 @@ export default function LobbyPage({ params }: LobbyPageProps) {
               <>
                 <button
                   onClick={handleStartGame}
-                  disabled={room.currentPlayers < minPlayers || actionLoading}
+                  disabled={!canStartGame || actionLoading}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none"
                 >
                   {actionLoading ? 'กำลังเริ่มเกม...' : 'เริ่มเกม'}
                 </button>
-                {room.currentPlayers < minPlayers && (
+                {!canStartGame && (
                   <p className="text-center text-yellow-200 text-sm">
-                    ต้องมีผู้เล่นอย่างน้อย {minPlayers} คน
+                    {room.currentPlayers < minPlayers
+                      ? `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน`
+                      : 'ผู้เล่นทุกคนต้องกด Ready ก่อน'}
                   </p>
                 )}
               </>

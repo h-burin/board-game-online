@@ -72,10 +72,24 @@ export async function POST(
       );
     }
 
-    // Validation - Check minimum players (at least 2)
-    if (roomData.currentPlayers < 2) {
+    // Get game details to check MinPlayer
+    const gameRef = doc(db, 'games', roomData.gameId);
+    const gameSnap = await getDoc(gameRef);
+
+    if (!gameSnap.exists()) {
       return NextResponse.json(
-        { success: false, error: 'ต้องมีผู้เล่นอย่างน้อย 2 คน' },
+        { success: false, error: 'ไม่พบข้อมูลเกม' },
+        { status: 404 }
+      );
+    }
+
+    const gameInfo = gameSnap.data();
+    const minPlayers = gameInfo.MinPlayer || 2;
+
+    // Validation - Check minimum players
+    if (roomData.currentPlayers < minPlayers) {
+      return NextResponse.json(
+        { success: false, error: `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน` },
         { status: 400 }
       );
     }
@@ -85,9 +99,23 @@ export async function POST(
     const playersQuery = query(playersRef, orderBy('joinedAt', 'asc'));
     const playersSnap = await getDocs(playersQuery);
 
-    if (playersSnap.empty || playersSnap.size < 2) {
+    if (playersSnap.empty || playersSnap.size < minPlayers) {
       return NextResponse.json(
-        { success: false, error: 'ต้องมีผู้เล่นอย่างน้อย 2 คน' },
+        { success: false, error: `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน` },
+        { status: 400 }
+      );
+    }
+
+    // Validation - Check if all players are ready (except host)
+    const allPlayersReady = playersSnap.docs.every((playerDoc) => {
+      const playerData = playerDoc.data();
+      // Host doesn't need to be ready, or all players including host must be ready
+      return playerData.isReady === true || playerData.isHost === true;
+    });
+
+    if (!allPlayersReady) {
+      return NextResponse.json(
+        { success: false, error: 'ผู้เล่นทุกคนต้องกด Ready ก่อน' },
         { status: 400 }
       );
     }
@@ -96,15 +124,16 @@ export async function POST(
     const firstPlayer = playersSnap.docs[0];
     const firstPlayerId = firstPlayer.id;
 
-    // Create game document
-    const gamesRef = collection(db, 'games');
-    const gameDoc = doc(gamesRef);
-    const gameId = gameDoc.id;
+    // Create game session document (different from games collection which stores game types)
+    const gameSessionsRef = collection(db, 'game_sessions');
+    const gameSessionDoc = doc(gameSessionsRef);
+    const gameSessionId = gameSessionDoc.id;
 
-    const gameData = {
-      id: gameId,
+    const gameSessionData = {
+      id: gameSessionId,
       roomId: roomId,
-      gameType: 'mock-game',
+      gameId: roomData.gameId, // Reference to game type (BWLxJkh45e6RiALRBmcl)
+      gameType: roomData.gameType, // Game name
       currentTurn: firstPlayerId,
       turnNumber: 0,
       state: {},
@@ -112,20 +141,20 @@ export async function POST(
       updatedAt: serverTimestamp(),
     };
 
-    // Save game document
-    await setDoc(gameDoc, gameData);
+    // Save game session document
+    await setDoc(gameSessionDoc, gameSessionData);
 
     // Update room status to 'playing'
     await updateDoc(roomRef, {
       status: 'playing',
-      gameId: gameId,
+      gameSessionId: gameSessionId,
       updatedAt: serverTimestamp(),
     });
 
     // Return success response
     return NextResponse.json({
       success: true,
-      gameId: gameId,
+      gameSessionId: gameSessionId,
       message: 'เริ่มเกมสำเร็จ',
     });
   } catch (error) {
