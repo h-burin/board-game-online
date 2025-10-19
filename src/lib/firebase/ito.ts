@@ -447,11 +447,25 @@ export async function countVotes(sessionId: string): Promise<{ playerId: string;
 
     // นับคะแนนโดยใช้ playerId + answerIndex
     const voteCount: { [answerId: string]: number } = {};
+    // Debug: แสดงทุก votes
+    console.log('🔍 DEBUG countVotes - All votes:');
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      console.log('  Vote:', {
+        playerId: data.playerId,
+        votedForPlayerId: data.votedForPlayerId,
+        votedForAnswerIndex: data.votedForAnswerIndex,
+        answerId: `${data.votedForPlayerId}_${data.votedForAnswerIndex}`
+      });
+    });
+
     snapshot.docs.forEach((doc) => {
       const data = doc.data();
       const answerId = `${data.votedForPlayerId}_${data.votedForAnswerIndex}`;
       voteCount[answerId] = (voteCount[answerId] || 0) + 1;
     });
+
+    console.log('🔍 DEBUG countVotes - Vote count:', voteCount);
 
     // หาคะแนนสูงสุด
     let maxVotes = 0;
@@ -467,10 +481,14 @@ export async function countVotes(sessionId: string): Promise<{ playerId: string;
       }
     });
 
+    console.log('🔍 DEBUG countVotes - Winners:', { maxVotes, winners });
+
     // ถ้าเสมอ random
     const selectedAnswerId = winners.length > 1
       ? winners[Math.floor(Math.random() * winners.length)]
       : winners[0];
+
+    console.log('🔍 DEBUG countVotes - Selected:', selectedAnswerId);
 
     if (!selectedAnswerId) return null;
 

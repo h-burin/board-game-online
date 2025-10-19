@@ -6,6 +6,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getDatabase, Database } from 'firebase/database';
+import { getAuth, Auth } from 'firebase/auth';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -27,4 +28,7 @@ const db: Firestore = getFirestore(app);
 // Initialize Realtime Database (for game state, real-time updates)
 const realtimeDb: Database = getDatabase(app);
 
-export { app, db, realtimeDb };
+// Initialize Authentication (for admin login)
+const auth: Auth = getAuth(app);
+
+export { app, db, realtimeDb, auth };
