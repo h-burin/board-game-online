@@ -451,6 +451,23 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
               ให้คำใบ้ที่สื่อถึงตัวเลขของคุณ โดยไม่ต้องบอกตัวเลข
             </p>
 
+            {/* ประวัติเลขที่เปิดแล้ว */}
+            {gameState.revealedNumbers.length > 0 && (
+              <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl p-4 mb-6 border border-green-400/30">
+                <h4 className="text-white font-bold mb-3 text-center">ตัวเลขที่เปิดแล้ว</h4>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {gameState.revealedNumbers.map((num, i) => (
+                    <div
+                      key={i}
+                      className="bg-white/20 px-4 py-2 rounded-lg text-xl font-bold text-white"
+                    >
+                      {num}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* แสดงช่องกรอกแยกสำหรับแต่ละเลข */}
             <div className="space-y-6">
               {answersWithIndex
@@ -523,6 +540,23 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             <p className="text-white/70 mb-4">
               คลิกเลือกคำใบ้ที่คุณคิดว่าสื่อถึงตัวเลขที่น้อยที่สุด
             </p>
+
+            {/* ประวัติเลขที่เปิดแล้ว */}
+            {gameState.revealedNumbers.length > 0 && (
+              <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl p-4 mb-6 border border-green-400/30">
+                <h4 className="text-white font-bold mb-3 text-center">ตัวเลขที่เปิดแล้ว</h4>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {gameState.revealedNumbers.map((num, i) => (
+                    <div
+                      key={i}
+                      className="bg-white/20 px-4 py-2 rounded-lg text-xl font-bold text-white"
+                    >
+                      {num}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* สถานะการโหวต */}
             <div className="bg-white/5 rounded-xl p-4 mb-6">
