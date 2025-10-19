@@ -49,11 +49,15 @@ export async function getRandomQuestion(): Promise<ItoQuestion | null> {
 
 /**
  * สุ่มเลขให้ผู้เล่น (1-100) แต่ละคนไม่ซ้ำกัน
+ * @param playerCount จำนวนผู้เล่น
+ * @param numbersPerPlayer จำนวนเลขต่อคน (1, 2, หรือ 3)
+ * @returns array ของเลขที่ไม่ซ้ำกัน (จำนวน = playerCount * numbersPerPlayer)
  */
-export function generateUniqueNumbers(playerCount: number): number[] {
+export function generateUniqueNumbers(playerCount: number, numbersPerPlayer: number = 1): number[] {
+  const totalNumbers = playerCount * numbersPerPlayer;
   const numbers = new Set<number>();
 
-  while (numbers.size < playerCount) {
+  while (numbers.size < totalNumbers) {
     const randomNum = Math.floor(Math.random() * 100) + 1; // 1-100
     numbers.add(randomNum);
   }
@@ -62,7 +66,124 @@ export function generateUniqueNumbers(playerCount: number): number[] {
 }
 
 /**
+ * เริ่ม Level ใหม่ (สุ่มโจทย์ใหม่ + เลขใหม่)
+ */
+export async function startNextLevel(
+  sessionId: string,
+  playerIds: string[],
+  playerNames: { [playerId: string]: string },
+  currentLevel: number,
+  currentHearts: number
+): Promise<boolean> {
+  console.log('🚀🚀🚀 [startNextLevel] CALLED with:', {
+    sessionId,
+    playerIds,
+    currentLevel,
+    currentHearts,
+  });
+
+  try {
+    // 1. สุ่มโจทย์ใหม่
+    const question = await getRandomQuestion();
+    if (!question) {
+      throw new Error('ไม่สามารถสุ่มโจทย์ได้');
+    }
+
+    // 2. คำนวณจำนวนเลขต่อคน (level 1=1, 2=2, 3=3)
+    const numbersPerPlayer = currentLevel;
+    const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
+    const totalNumbers = playerIds.length * numbersPerPlayer;
+
+    // 3. อัปเดต Game State
+    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
+    const sessionRef = doc(db, 'game_sessions', sessionId);
+
+    await updateDoc(sessionRef, {
+      currentLevel: currentLevel,
+      hearts: currentHearts, // คงหัวใจเดิม
+      currentRound: 1,
+      totalRounds: totalNumbers,
+      questionId: question.id,
+      questionText: question.questionsTH,
+      phase: 'writing',
+      phaseEndTime: Timestamp.fromDate(phaseEndTime),
+      revealedNumbers: [],
+      updatedAt: serverTimestamp(),
+    });
+
+    // 4. ลบ player_answers เก่าออก
+    const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+    const oldAnswersSnap = await getDocs(playerAnswersRef);
+    const deletePromises = oldAnswersSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+
+    // 5. สร้าง Player Answers ใหม่
+    const playerAnswers: ItoPlayerAnswer[] = [];
+    let numberIndex = 0;
+
+    for (const playerId of playerIds) {
+      for (let answerIdx = 0; answerIdx < numbersPerPlayer; answerIdx++) {
+        playerAnswers.push({
+          playerId: playerId,
+          playerName: playerNames[playerId] || 'Unknown',
+          number: numbers[numberIndex],
+          answer: '',
+          isRevealed: false,
+          answerIndex: answerIdx, // 0, 1, 2
+        });
+        numberIndex++;
+      }
+    }
+
+    // 6. บันทึก Player Answers ใหม่แบบ Batch (ป้องกัน race condition)
+    console.log(`📝 Creating ${playerAnswers.length} player_answers documents...`);
+
+    const batch = [];
+    for (const playerAnswer of playerAnswers) {
+      const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
+      console.log(`  - Preparing: ${docId} (number: ${playerAnswer.number})`);
+
+      const docRef = doc(playerAnswersRef, docId);
+      batch.push(
+        setDoc(docRef, {
+          ...playerAnswer,
+          submittedAt: null,
+        })
+      );
+    }
+
+    // Execute all setDoc operations in parallel
+    await Promise.all(batch);
+    console.log(`✅ All ${batch.length} documents created successfully`);
+
+    // 7. ลบ votes เก่าออก
+    const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
+    const votesSnap = await getDocs(votesRef);
+    const deleteVotesPromises = votesSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deleteVotesPromises);
+
+    // 8. ตรวจสอบว่าสร้างครบจริงหรือไม่
+    const verifySnap = await getDocs(playerAnswersRef);
+    console.log(`✅ Started Level ${currentLevel}:`, {
+      sessionId,
+      question: question.questionsTH,
+      numbersPerPlayer,
+      totalNumbers,
+      expectedDocs: playerAnswers.length,
+      actualDocs: verifySnap.docs.length,
+      docIds: verifySnap.docs.map(d => d.id),
+    });
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error starting next level:', error);
+    return false;
+  }
+}
+
+/**
  * สร้าง Game State เริ่มต้นสำหรับ ITO
+ * เริ่มที่ Level 1 (คนละ 1 เลข)
  */
 export async function initializeItoGame(
   sessionId: string,
@@ -77,19 +198,27 @@ export async function initializeItoGame(
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
     }
 
-    // 2. สุ่มเลขให้ผู้เล่น
-    const numbers = generateUniqueNumbers(playerIds.length);
+    // 2. สุ่มเลขให้ผู้เล่น (Level 1 = คนละ 1 เลข)
+    const numbersPerPlayer = 1;
+    const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
 
     // 3. สร้าง Game State
-    const phaseEndTime = new Date(Date.now() + 60 * 1000); // 1 นาที
+    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
+    const totalNumbers = playerIds.length * numbersPerPlayer;
 
     const gameState: ItoGameState = {
       id: sessionId,
       roomId: roomId,
       gameId: 'BWLxJkh45e6RiALRBmcl',
+
+      // Level system
+      currentLevel: 1,
+      totalLevels: 3,
+
       hearts: 3,
       currentRound: 1,
-      totalRounds: playerIds.length,
+      totalRounds: totalNumbers,
+
       questionId: question.id,
       questionText: question.questionsTH,
       phase: 'writing',
@@ -100,14 +229,23 @@ export async function initializeItoGame(
       updatedAt: new Date(),
     };
 
-    // 4. สร้าง Player Answers
-    const playerAnswers: ItoPlayerAnswer[] = playerIds.map((playerId, index) => ({
-      playerId: playerId,
-      playerName: playerNames[playerId] || 'Unknown',
-      number: numbers[index],
-      answer: '',
-      isRevealed: false,
-    }));
+    // 4. สร้าง Player Answers (แต่ละเลขเป็น document แยก)
+    const playerAnswers: ItoPlayerAnswer[] = [];
+    let numberIndex = 0;
+
+    for (const playerId of playerIds) {
+      for (let answerIdx = 0; answerIdx < numbersPerPlayer; answerIdx++) {
+        playerAnswers.push({
+          playerId: playerId,
+          playerName: playerNames[playerId] || 'Unknown',
+          number: numbers[numberIndex],
+          answer: '',
+          isRevealed: false,
+          answerIndex: answerIdx,
+        });
+        numberIndex++;
+      }
+    }
 
     // 5. บันทึกลง Firestore
     const sessionRef = doc(db, 'game_sessions', sessionId);
@@ -119,9 +257,11 @@ export async function initializeItoGame(
     });
 
     // 6. บันทึก Player Answers ลง subcollection
+    // ใช้ playerId_answerIndex เป็น document ID
     const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
     for (const playerAnswer of playerAnswers) {
-      await setDoc(doc(playerAnswersRef, playerAnswer.playerId), {
+      const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
+      await setDoc(doc(playerAnswersRef, docId), {
         ...playerAnswer,
         submittedAt: null,
       });
@@ -137,21 +277,30 @@ export async function initializeItoGame(
 }
 
 /**
- * ส่งคำตอบของผู้เล่น
+ * ส่งคำตอบของผู้เล่น (อัปเดตเฉพาะ document ที่ระบุ answerIndex)
  */
 export async function submitPlayerAnswer(
   sessionId: string,
   playerId: string,
-  answer: string
+  answer: string,
+  answerIndex: number
 ): Promise<boolean> {
   try {
-    const answerRef = doc(db, `game_sessions/${sessionId}/player_answers`, playerId);
+    // อัปเดตเฉพาะ document ที่มี answerIndex ตรงกัน
+    const docId = `${playerId}_${answerIndex}`;
+    const answerRef = doc(db, `game_sessions/${sessionId}/player_answers`, docId);
+
     await updateDoc(answerRef, {
       answer: answer,
       submittedAt: serverTimestamp(),
     });
 
-    console.log('✅ Player answer submitted:', { sessionId, playerId, answer });
+    console.log('✅ Player answer submitted:', {
+      sessionId,
+      playerId,
+      answerIndex,
+      answer,
+    });
     return true;
   } catch (error) {
     console.error('❌ Error submitting answer:', error);
@@ -164,13 +313,62 @@ export async function submitPlayerAnswer(
  */
 export async function checkAllAnswersSubmitted(sessionId: string): Promise<boolean> {
   try {
+    // ดึง game state เพื่อรู้ว่าควรมีกี่ documents
+    const sessionRef = doc(db, 'game_sessions', sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      console.log('❌ [checkAllAnswersSubmitted] Session not found');
+      return false;
+    }
+
+    const gameState = sessionSnap.data();
+    const expectedDocs = gameState.totalRounds; // จำนวน documents ที่ควรมี
+
     const answersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
     const snapshot = await getDocs(answersRef);
 
+    console.log('🔍 [checkAllAnswersSubmitted]', {
+      sessionId,
+      totalDocs: snapshot.docs.length,
+      expectedDocs,
+      isEmpty: snapshot.empty,
+    });
+
+    // ถ้าไม่มี answers เลย return false
+    if (snapshot.empty || snapshot.docs.length === 0) {
+      console.log('❌ [checkAllAnswersSubmitted] No answers found, returning false');
+      return false;
+    }
+
+    // ตรวจสอบว่ามีครบจำนวนหรือยัง
+    if (snapshot.docs.length < expectedDocs) {
+      console.log(`⚠️ [checkAllAnswersSubmitted] Not all documents created yet (${snapshot.docs.length}/${expectedDocs})`);
+      return false;
+    }
+
+    const details: any[] = [];
     const allSubmitted = snapshot.docs.every((doc) => {
       const data = doc.data();
-      return data.submittedAt !== null && data.answer.trim() !== '';
+      const hasAnswer = !!data.answer && data.answer.trim() !== '';
+      const hasSubmittedAt = data.submittedAt !== null;
+      const isSubmitted = hasSubmittedAt && hasAnswer;
+
+      details.push({
+        docId: doc.id,
+        playerId: data.playerId,
+        answerIndex: data.answerIndex,
+        hasAnswer,
+        answerLength: data.answer?.length || 0,
+        hasSubmittedAt,
+        isSubmitted,
+      });
+
+      return isSubmitted;
     });
+
+    console.log('📋 [checkAllAnswersSubmitted] Details:', details);
+    console.log(allSubmitted ? '✅ [checkAllAnswersSubmitted] All submitted = TRUE' : '⚠️ [checkAllAnswersSubmitted] All submitted = FALSE');
 
     return allSubmitted;
   } catch (error) {
@@ -185,7 +383,7 @@ export async function checkAllAnswersSubmitted(sessionId: string): Promise<boole
 export async function startVotingPhase(sessionId: string): Promise<boolean> {
   try {
     const sessionRef = doc(db, 'game_sessions', sessionId);
-    const phaseEndTime = new Date(Date.now() + 4 * 60 * 1000); // 4 นาที
+    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
 
     await updateDoc(sessionRef, {
       phase: 'voting',
@@ -207,17 +405,23 @@ export async function startVotingPhase(sessionId: string): Promise<boolean> {
 export async function submitVote(
   sessionId: string,
   playerId: string,
-  votedForPlayerId: string
+  votedForPlayerId: string,
+  votedForAnswerIndex: number
 ): Promise<boolean> {
   try {
     const voteRef = doc(db, `game_sessions/${sessionId}/votes`, playerId);
     await setDoc(voteRef, {
       playerId: playerId,
       votedForPlayerId: votedForPlayerId,
+      votedForAnswerIndex: votedForAnswerIndex,
       votedAt: serverTimestamp(),
     });
 
-    console.log('✅ Vote submitted:', { sessionId, playerId, votedFor: votedForPlayerId });
+    console.log('✅ Vote submitted:', {
+      sessionId,
+      playerId,
+      votedFor: `${votedForPlayerId}_${votedForAnswerIndex}`
+    });
     return true;
   } catch (error) {
     console.error('❌ Error submitting vote:', error);
@@ -227,8 +431,9 @@ export async function submitVote(
 
 /**
  * นับคะแนนโหวตและหาผู้ที่ได้รับโหวตสูงสุด
+ * @returns answerId ในรูปแบบ "playerId_answerIndex"
  */
-export async function countVotes(sessionId: string): Promise<string | null> {
+export async function countVotes(sessionId: string): Promise<{ playerId: string; answerIndex: number } | null> {
   try {
     const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
     const snapshot = await getDocs(votesRef);
@@ -237,34 +442,51 @@ export async function countVotes(sessionId: string): Promise<string | null> {
       return null;
     }
 
-    // นับคะแนน
-    const voteCount: { [playerId: string]: number } = {};
+    // นับคะแนนโดยใช้ playerId + answerIndex
+    const voteCount: { [answerId: string]: number } = {};
     snapshot.docs.forEach((doc) => {
-      const votedFor = doc.data().votedForPlayerId;
-      voteCount[votedFor] = (voteCount[votedFor] || 0) + 1;
+      const data = doc.data();
+      const answerId = `${data.votedForPlayerId}_${data.votedForAnswerIndex}`;
+      voteCount[answerId] = (voteCount[answerId] || 0) + 1;
     });
 
     // หาคะแนนสูงสุด
     let maxVotes = 0;
     const winners: string[] = [];
 
-    Object.entries(voteCount).forEach(([playerId, count]) => {
+    Object.entries(voteCount).forEach(([answerId, count]) => {
       if (count > maxVotes) {
         maxVotes = count;
         winners.length = 0;
-        winners.push(playerId);
+        winners.push(answerId);
       } else if (count === maxVotes) {
-        winners.push(playerId);
+        winners.push(answerId);
       }
     });
 
     // ถ้าเสมอ random
-    if (winners.length > 1) {
-      const randomIndex = Math.floor(Math.random() * winners.length);
-      return winners[randomIndex];
-    }
+    const selectedAnswerId = winners.length > 1
+      ? winners[Math.floor(Math.random() * winners.length)]
+      : winners[0];
 
-    return winners[0] || null;
+    if (!selectedAnswerId) return null;
+
+    // แยก answerId กลับเป็น playerId และ answerIndex
+    const [playerId, answerIndexStr] = selectedAnswerId.split('_');
+    const result = {
+      playerId,
+      answerIndex: parseInt(answerIndexStr, 10)
+    };
+
+    console.log('✅ countVotes result:', {
+      selectedAnswerId,
+      playerId,
+      answerIndexStr,
+      answerIndex: result.answerIndex,
+      answerIndexType: typeof result.answerIndex,
+    });
+
+    return result;
   } catch (error) {
     console.error('❌ Error counting votes:', error);
     return null;
@@ -276,7 +498,8 @@ export async function countVotes(sessionId: string): Promise<string | null> {
  */
 export async function revealAndCheck(
   sessionId: string,
-  selectedPlayerId: string
+  selectedPlayerId: string,
+  selectedAnswerIndex: number
 ): Promise<{
   success: boolean;
   number: number;
@@ -295,20 +518,63 @@ export async function revealAndCheck(
 
     const gameState = sessionSnap.data() as ItoGameState;
 
-    // 2. ดึงข้อมูล player answer ที่ถูกเลือก
-    const answerRef = doc(db, `game_sessions/${sessionId}/player_answers`, selectedPlayerId);
-    const answerSnap = await getDoc(answerRef);
+    // 2. ดึงเลขทั้งหมด (เพื่อหา selectedAnswer และ unrevealed numbers)
+    const answersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+    const answersSnap = await getDocs(answersRef);
 
-    if (!answerSnap.exists()) {
+    // 3. หา player answer ที่ถูกโหวต (ใช้ field playerId + answerIndex เทียบ)
+    let selectedAnswer: ItoPlayerAnswer | null = null;
+    let answerDocRef: any = null;
+
+    console.log('🔍 Searching for answer:', {
+      selectedPlayerId,
+      selectedAnswerIndex,
+      selectedAnswerIndexType: typeof selectedAnswerIndex,
+    });
+
+    // Debug: แสดงทุก answers ที่มี
+    const allAnswersDebug = answersSnap.docs.map((docSnap) => {
+      const data = docSnap.data() as ItoPlayerAnswer;
+      return {
+        docId: docSnap.id,
+        playerId: data.playerId,
+        answerIndex: data.answerIndex,
+        answerIndexType: typeof data.answerIndex,
+        isRevealed: data.isRevealed,
+        answer: data.answer,
+      };
+    });
+    console.log('🔍 All answers in DB:', allAnswersDebug);
+
+    answersSnap.docs.forEach((docSnap) => {
+      const data = docSnap.data() as ItoPlayerAnswer;
+      // หาตัวที่ตรงกับ selectedPlayerId + answerIndex และยังไม่ถูก reveal
+      if (data.playerId === selectedPlayerId &&
+          data.answerIndex === selectedAnswerIndex &&
+          !data.isRevealed) {
+        selectedAnswer = data;
+        answerDocRef = docSnap.ref;
+      }
+    });
+
+    if (!selectedAnswer || !answerDocRef) {
+      console.error('❌ Player answer not found for:', `${selectedPlayerId}_${selectedAnswerIndex}`);
+      console.error('❌ Search criteria:', {
+        selectedPlayerId,
+        selectedAnswerIndex,
+        selectedAnswerIndexType: typeof selectedAnswerIndex,
+      });
       throw new Error('Player answer not found');
     }
 
-    const selectedAnswer = answerSnap.data() as ItoPlayerAnswer;
-    const selectedNumber = selectedAnswer.number;
+    console.log('✅ Found answer:', {
+      docId: answerDocRef.id,
+      playerId: selectedAnswer.playerId,
+      answerIndex: selectedAnswer.answerIndex,
+      number: selectedAnswer.number,
+    });
 
-    // 3. ดึงเลขทั้งหมดที่ยังไม่ถูกเปิด (ก่อนที่จะอัปเดต)
-    const answersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
-    const answersSnap = await getDocs(answersRef);
+    const selectedNumber = selectedAnswer.number;
 
     const unrevealedNumbers: number[] = [];
     const allPlayerAnswers: { playerId: string; number: number; isRevealed: boolean }[] = [];
@@ -316,7 +582,7 @@ export async function revealAndCheck(
     answersSnap.docs.forEach((doc) => {
       const data = doc.data() as ItoPlayerAnswer;
       allPlayerAnswers.push({
-        playerId: doc.id,
+        playerId: data.playerId, // แก้ไข: ใช้ field playerId ไม่ใช่ doc.id
         number: data.number,
         isRevealed: data.isRevealed,
       });
@@ -359,38 +625,59 @@ export async function revealAndCheck(
     );
     const newRound = gameState.currentRound + 1;
 
-    // ตรวจสอบว่าเกมจบหรือไม่
-    // เกมจบถ้า:
-    // 1. หัวใจหมด (แพ้)
-    // 2. เปิดครบทุกตัวแล้ว (ชนะ ถ้ายังมีหัวใจเหลือ)
-    // 3. เหลือเลขสุดท้าย 1 ตัว (ชนะอัตโนมัติ เพราะไม่ต้องเลือก)
-    const allRevealed = newRevealedNumbers.length >= gameState.totalRounds;
+    // ตรวจสอบว่า Level นี้จบหรือยัง
+    const allRevealedInLevel = newRevealedNumbers.length >= gameState.totalRounds;
     const onlyOneLeft = newRevealedNumbers.length === gameState.totalRounds - 1;
-    const isGameFinished = allRevealed || newHearts === 0 || onlyOneLeft;
+    const isLevelComplete = allRevealedInLevel || onlyOneLeft;
 
-    // กำหนด status
+    // ตรวจสอบว่าเกมทั้งหมดจบหรือไม่
+    let newPhase: 'reveal' | 'levelComplete' | 'finished' = 'reveal';
     let newStatus: 'playing' | 'won' | 'lost' = 'playing';
+
     if (newHearts === 0) {
-      newStatus = 'lost'; // หัวใจหมด = แพ้
-    } else if (allRevealed || onlyOneLeft) {
-      newStatus = 'won'; // เปิดครบ หรือเหลือแค่ 1 ตัว = ชนะ
+      // หัวใจหมด = แพ้ทันที
+      newPhase = 'finished';
+      newStatus = 'lost';
+    } else if (isLevelComplete) {
+      // Level นี้จบแล้ว
+      if (gameState.currentLevel < gameState.totalLevels) {
+        // ยังมี level ถัดไป
+        newPhase = 'levelComplete';
+        newStatus = 'playing';
+      } else {
+        // จบ level สุดท้ายแล้ว = ชนะ
+        newPhase = 'finished';
+        newStatus = 'won';
+      }
     }
 
     console.log('🔍 Debug - Game status:', {
-      allRevealed,
+      allRevealedInLevel,
       onlyOneLeft,
-      isGameFinished,
+      isLevelComplete,
+      currentLevel: gameState.currentLevel,
+      totalLevels: gameState.totalLevels,
+      newPhase,
       newStatus,
-      revealedCount: newRevealedNumbers.length,
-      totalRounds: gameState.totalRounds,
+      newHearts,
     });
 
     // ถ้าเหลือเลขสุดท้าย 1 ตัว ให้เปิดเลขนั้นอัตโนมัติด้วย
     let finalRevealedNumbers = newRevealedNumbers;
     if (onlyOneLeft && newHearts > 0) {
-      // หาเลขสุดท้ายที่ยังไม่ถูกเปิด
-      const lastNumber = unrevealedNumbers.find((num) => num !== selectedNumber);
-      if (lastNumber) {
+      // หาเลขทั้งหมดที่ยังไม่ถูกเปิด (ไม่รวม selectedNumber ที่เพิ่งเปิด)
+      const remainingNumbers = unrevealedNumbers.filter((num) => num !== selectedNumber);
+
+      console.log('🔍 Auto-reveal last number check:', {
+        unrevealedNumbers,
+        selectedNumber,
+        remainingNumbers,
+        shouldAutoReveal: remainingNumbers.length === 1,
+      });
+
+      // ต้องเหลือพอดี 1 ตัว
+      if (remainingNumbers.length === 1) {
+        const lastNumber = remainingNumbers[0];
         finalRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
 
         // Mark เลขสุดท้ายว่าเปิดแล้วด้วย
@@ -399,22 +686,23 @@ export async function revealAndCheck(
         );
         if (lastPlayerAnswer) {
           await updateDoc(lastPlayerAnswer.ref, { isRevealed: true });
+          console.log('✅ Auto-revealed last number:', lastNumber);
         }
       }
     }
 
-    // เปลี่ยนเป็น reveal phase ก่อน
+    // อัปเดต game state
     await updateDoc(sessionRef, {
       hearts: newHearts,
       currentRound: newRound,
       revealedNumbers: finalRevealedNumbers,
-      phase: 'reveal',
+      phase: newPhase, // 'reveal', 'levelComplete', หรือ 'finished'
       status: newStatus,
       updatedAt: serverTimestamp(),
     });
 
     // 8. ทำเครื่องหมาย player answer ว่าเปิดแล้ว
-    await updateDoc(answerRef, {
+    await updateDoc(answerDocRef, {
       isRevealed: true,
     });
 
@@ -430,7 +718,8 @@ export async function revealAndCheck(
       isCorrect,
       heartsLost,
       newHearts,
-      allRevealed,
+      allRevealedInLevel,
+      newPhase,
       newStatus,
       revealedCount: newRevealedNumbers.length,
       totalRounds: gameState.totalRounds,

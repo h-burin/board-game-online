@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useItoGame } from '@/lib/hooks/useItoGame';
@@ -17,32 +17,131 @@ interface ItoGameProps {
   playerId: string;
 }
 
+// Extended type for answers with answerIndex
+type ItoPlayerAnswerWithIndex = {
+  playerId: string;
+  playerName: string;
+  number: number;
+  answer: string;
+  submittedAt?: Date;
+  isRevealed: boolean;
+  answerIndex: number;
+};
+
 export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
-  const { gameState, playerAnswers, myAnswer, loading } = useItoGame(sessionId, playerId);
+  const { gameState, playerAnswers, myAnswer, myAnswers, loading } = useItoGame(sessionId, playerId);
   const { votes, voteCount } = useVotes(sessionId);
 
-  const [answer, setAnswer] = useState('');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<{ [answerIndex: number]: string }>({});
+  const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null); // format: "playerId_answerIndex"
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [revealing, setRevealing] = useState(false);
+  const prevAnswersRef = useRef<string>('');
+  const prevLevelRef = useRef<number>(0);
 
-  // Auto-fill answer if already submitted
+  // Clear answers when level changes
   useEffect(() => {
-    if (myAnswer?.answer) {
-      setAnswer(myAnswer.answer);
-    }
-  }, [myAnswer]);
+    if (!gameState) return;
 
-  // Handle submit answer
-  const handleSubmitAnswer = async () => {
-    if (!answer.trim() || !gameState || submitting) return;
+    // ถ้ายังไม่เคยตั้งค่า prevLevelRef ให้ตั้งค่าครั้งแรก
+    if (prevLevelRef.current === 0) {
+      prevLevelRef.current = gameState.currentLevel;
+      return;
+    }
+
+    // ถ้า level เปลี่ยน ให้ clear ข้อมูล
+    if (prevLevelRef.current !== gameState.currentLevel) {
+      console.log(`🔄 Level changed from ${prevLevelRef.current} to ${gameState.currentLevel}, clearing answers`);
+      setAnswers({});
+      prevAnswersRef.current = '';
+      prevLevelRef.current = gameState.currentLevel;
+    }
+  }, [gameState?.currentLevel]);
+
+  // Auto-fill answers if already submitted
+  useEffect(() => {
+    if (!gameState || myAnswers.length === 0) return;
+
+    // Cast to extended type
+    const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
+
+    // ตรวจสอบจำนวน answers ที่ควรจะมีใน level ปัจจุบัน
+    // Level 1 = 1 answer, Level 2 = 2 answers, Level 3 = 3 answers
+    const expectedAnswersCount = gameState.currentLevel;
+
+    // ถ้าจำนวน answers ไม่ตรงกับที่คาดหวัง แปลว่าเป็นข้อมูลเก่า
+    if (myAnswers.length !== expectedAnswersCount) {
+      console.log('⚠️ Answers count mismatch, skipping auto-fill:', {
+        expected: expectedAnswersCount,
+        actual: myAnswers.length,
+        level: gameState.currentLevel,
+      });
+      return;
+    }
+
+    // ตรวจสอบว่า myAnswers ทั้งหมดเป็นของ level ปัจจุบันหรือไม่
+    // โดยดูว่าถ้า answer ไม่ว่าง แต่ submittedAt เป็น null
+    // แปลว่าเป็นข้อมูลเก่าที่ Firestore ยังไม่ได้ลบ (ข้ามไป)
+    const hasStaleData = answersWithIndex.some(
+      (ans) => ans.answer !== '' && !ans.submittedAt
+    );
+
+    if (hasStaleData) {
+      console.log('⚠️ Detected stale data from Firestore, skipping auto-fill');
+      return;
+    }
+
+    // สร้าง key จาก myAnswers เพื่อเช็คว่ามีการเปลี่ยนแปลงจริงหรือไม่
+    // เพิ่ม currentLevel ใน key เพื่อให้ clear เมื่อ level เปลี่ยน
+    const answersKey = `L${gameState.currentLevel}|${answersWithIndex
+      .map(a => `${a.answerIndex}:${a.answer || ''}:${a.submittedAt ? '1' : '0'}`)
+      .sort()
+      .join('|')}`;
+
+    // ถ้าไม่มีการเปลี่ยนแปลง ไม่ต้อง update
+    if (prevAnswersRef.current === answersKey) return;
+
+    console.log('📝 Auto-fill answers check:', {
+      currentLevel: gameState.currentLevel,
+      previousKey: prevAnswersRef.current,
+      newKey: answersKey,
+      myAnswersCount: myAnswers.length,
+      hasStaleData,
+    });
+
+    prevAnswersRef.current = answersKey;
+
+    // อัปเดต answers แต่เฉพาะตัวที่ส่งไปแล้ว (submittedAt !== null)
+    // เพื่อไม่ให้ overwrite ข้อมูลที่ user กำลังพิมพ์อยู่
+    setAnswers((prevAnswers) => {
+      const newAnswers = { ...prevAnswers };
+      answersWithIndex.forEach((ans) => {
+        // เฉพาะตัวที่ส่งไปแล้ว (submittedAt !== null) หรือ ยังไม่มีค่าใน prevAnswers
+        if (ans.submittedAt) {
+          // ส่งไปแล้ว → ใช้ค่าจาก Firestore
+          newAnswers[ans.answerIndex] = ans.answer || '';
+        } else if (!prevAnswers[ans.answerIndex]) {
+          // ยังไม่เคยมีค่า และ submittedAt = null → ว่างเปล่า
+          newAnswers[ans.answerIndex] = '';
+        }
+        // ถ้ายังไม่ส่ง (submittedAt === null) และมีค่าอยู่แล้วใน prevAnswers
+        // ให้เก็บค่าเดิมที่ user กำลังพิมพ์อยู่ (ไม่ต้องทำอะไร)
+      });
+      return newAnswers;
+    });
+  }, [myAnswers, gameState]);
+
+  // Handle submit answer for specific answerIndex
+  const handleSubmitAnswer = async (answerIndex: number) => {
+    const answer = answers[answerIndex];
+    if (!answer?.trim() || !gameState || submitting) return;
 
     setSubmitting(true);
-    const success = await submitPlayerAnswer(sessionId, playerId, answer.trim());
+    const success = await submitPlayerAnswer(sessionId, playerId, answer.trim(), answerIndex);
 
     if (success) {
-      console.log('✅ Answer submitted successfully');
+      console.log('✅ Answer submitted successfully for index', answerIndex);
     } else {
       alert('เกิดข้อผิดพลาดในการส่งคำตอบ');
     }
@@ -51,14 +150,18 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
   // Handle submit vote
   const handleSubmitVote = async () => {
-    if (!selectedPlayerId || submitting) return;
+    if (!selectedAnswerId || submitting) return;
+
+    // แยก answerId เป็น playerId และ answerIndex
+    const [votedPlayerId, answerIndexStr] = selectedAnswerId.split('_');
+    const answerIndex = parseInt(answerIndexStr, 10);
 
     setSubmitting(true);
-    const success = await submitVote(sessionId, playerId, selectedPlayerId);
+    const success = await submitVote(sessionId, playerId, votedPlayerId, answerIndex);
 
     if (success) {
-      console.log('✅ Vote submitted successfully');
-      setSelectedPlayerId(null);
+      console.log('✅ Vote submitted successfully for:', selectedAnswerId);
+      setSelectedAnswerId(null);
     } else {
       alert('เกิดข้อผิดพลาดในการโหวต');
     }
@@ -86,8 +189,9 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   useEffect(() => {
     if (!gameState || gameState.phase !== 'voting' || revealing) return;
 
-    // ผู้เล่นทั้งหมด (ไม่ใช่แค่คำใบ้ที่ยังไม่เปิด)
-    const totalPlayers = playerAnswers.length;
+    // ผู้เล่นทั้งหมด (unique players - ไม่ใช่จำนวน answers)
+    const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
+    const totalPlayers = uniquePlayerIds.length;
 
     console.log('🔍 Vote check:', {
       voteCount,
@@ -133,13 +237,20 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const handleRevealVotes = async () => {
     if (revealing) return;
 
+    console.log('🎮 handleRevealVotes called');
     setRevealing(true);
     try {
-      const response = await fetch(`/api/games/ito/${sessionId}/reveal`, {
+      const url = `/api/games/ito/${sessionId}/reveal`;
+      console.log('📡 Fetching:', url);
+
+      const response = await fetch(url, {
         method: 'POST',
       });
 
+      console.log('📡 Response status:', response.status);
+
       const data = await response.json();
+      console.log('📡 Response data:', data);
 
       if (data.success) {
         console.log('✅ Votes revealed:', data);
@@ -147,32 +258,82 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         // ไม่ต้องทำอะไร รอ useEffect จัดการต่อ
       } else {
         console.error('❌ Failed to reveal votes:', data.error);
+        console.error('❌ Full error data:', data);
       }
     } catch (error) {
       console.error('❌ Error revealing votes:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown',
+        stack: error instanceof Error ? error.stack : 'No stack',
+      });
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
   };
 
-  // Auto-transition from reveal phase to voting or finished
+  // Auto-transition from reveal phase
   useEffect(() => {
     if (!gameState || gameState.phase !== 'reveal') return;
 
     const timer = setTimeout(async () => {
-      // ตรวจสอบว่าเกมจบหรือยัง
-      if (gameState.status === 'won' || gameState.status === 'lost') {
-        // เปลี่ยนเป็น finished
-        const sessionRef = doc(db, 'game_sessions', sessionId);
+      const sessionRef = doc(db, 'game_sessions', sessionId);
+
+      // ตรวจสอบว่า level นี้จบหรือยัง
+      const allRevealedInLevel = gameState.revealedNumbers.length >= gameState.totalRounds;
+
+      if (gameState.status === 'lost') {
+        // แพ้แล้ว → finished
         await updateDoc(sessionRef, {
           phase: 'finished',
           updatedAt: serverTimestamp(),
         });
+      } else if (allRevealedInLevel) {
+        // Level นี้จบแล้ว
+        if (gameState.currentLevel < gameState.totalLevels) {
+          // ยังมี level ถัดไป → levelComplete
+          await updateDoc(sessionRef, {
+            phase: 'levelComplete',
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          // จบ level สุดท้ายแล้ว → finished (ชนะ)
+          await updateDoc(sessionRef, {
+            phase: 'finished',
+            status: 'won',
+            updatedAt: serverTimestamp(),
+          });
+        }
       } else {
-        // เกมยังไม่จบ กลับไป voting phase
+        // Level ยังไม่จบ → กลับไป voting
         await startVotingPhase(sessionId);
       }
     }, 5000); // แสดงผล 5 วินาที
+
+    return () => clearTimeout(timer);
+  }, [gameState, sessionId]);
+
+  // Auto-start next level
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'levelComplete') return;
+
+    const timer = setTimeout(async () => {
+      try {
+        // เรียก API เพื่อเริ่ม level ใหม่
+        const response = await fetch(`/api/games/ito/${sessionId}/nextLevel`, {
+          method: 'POST',
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          console.error('❌ Failed to start next level:', data.error);
+        } else {
+          console.log('✅ Started next level');
+        }
+      } catch (error) {
+        console.error('❌ Error starting next level:', error);
+      }
+    }, 5000); // แสดงหน้า levelComplete 5 วินาที
 
     return () => clearTimeout(timer);
   }, [gameState, sessionId]);
@@ -238,56 +399,107 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         <p className="text-3xl font-bold text-white">{gameState.questionText}</p>
       </div>
 
-      {/* My Number */}
-      {myAnswer && (
-        <div className="bg-yellow-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border-2 border-yellow-400">
-          <div className="text-center">
-            <p className="text-white/70 mb-2">เลขของคุณ:</p>
-            <div className="text-6xl font-bold text-yellow-300">{myAnswer.number}</div>
+      {/* My Numbers */}
+      {myAnswers.length > 0 && (() => {
+        const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
+        return (
+          <div className="bg-yellow-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border-2 border-yellow-400">
+            <div className="text-center">
+              <p className="text-white/70 mb-2">
+                {myAnswers.length === 1 ? 'เลขของคุณ:' : `เลขของคุณ (${myAnswers.length} เลข):`}
+              </p>
+              <div className="flex flex-wrap justify-center gap-4">
+                {answersWithIndex
+                  .sort((a, b) => a.answerIndex - b.answerIndex)
+                  .map((ans, idx) => (
+                    <div key={idx} className="text-center">
+                      <div className="text-6xl font-bold text-yellow-300">{ans.number}</div>
+                      {myAnswers.length > 1 && (
+                        <div className="text-white/50 text-sm mt-1">เลขที่ {idx + 1}</div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Phase: Writing */}
-      {gameState.phase === 'writing' && (
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-          <h3 className="text-2xl font-bold text-white mb-4">พิมพ์คำใบ้ของคุณ</h3>
-          <p className="text-white/70 mb-4">
-            ให้คำใบ้ที่สื่อถึงตัวเลขของคุณ โดยไม่ต้องบอกตัวเลข
-          </p>
+      {gameState.phase === 'writing' && (() => {
+        const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
+        return (
+          <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
+            <h3 className="text-2xl font-bold text-white mb-4">พิมพ์คำใบ้ของคุณ</h3>
+            <p className="text-white/70 mb-6">
+              ให้คำใบ้ที่สื่อถึงตัวเลขของคุณ โดยไม่ต้องบอกตัวเลข
+            </p>
 
-          <textarea
-            className="w-full p-4 rounded-xl bg-white/10 text-white border border-white/20 focus:border-white/50 focus:outline-none resize-none"
-            rows={3}
-            placeholder="พิมพ์คำใบ้ที่นี่..."
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            disabled={!!myAnswer?.submittedAt}
-          />
+            {/* แสดงช่องกรอกแยกสำหรับแต่ละเลข */}
+            <div className="space-y-6">
+              {answersWithIndex
+                .sort((a, b) => a.answerIndex - b.answerIndex)
+                .map((ans) => {
+                  const isSubmitted = !!ans.submittedAt;
+                  return (
+                    <div key={ans.answerIndex} className="bg-white/5 rounded-2xl p-6 border border-white/10">
+                      {/* เลขที่ */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-white/70">
+                          {myAnswers.length > 1 ? `เลขที่ ${ans.answerIndex + 1}:` : 'เลขของคุณ:'}
+                        </div>
+                        <div className="text-3xl font-bold text-yellow-300">{ans.number}</div>
+                      </div>
 
-          {!myAnswer?.submittedAt ? (
-            <button
-              onClick={handleSubmitAnswer}
-              disabled={!answer.trim() || submitting}
-              className="mt-4 w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
-            >
-              {submitting ? 'กำลังส่ง...' : 'ส่งคำตอบ'}
-            </button>
-          ) : (
-            <div className="mt-4 text-center text-green-400 font-bold">
-              ✓ ส่งคำตอบแล้ว รอผู้เล่นคนอื่น...
+                      {/* ช่องกรอกคำใบ้ */}
+                      <textarea
+                        className="w-full p-4 rounded-xl bg-white/10 text-white border border-white/20 focus:border-white/50 focus:outline-none resize-none"
+                        rows={3}
+                        placeholder={`พิมพ์คำใบ้สำหรับเลข ${ans.number}...`}
+                        value={answers[ans.answerIndex] || ''}
+                        onChange={(e) => setAnswers({ ...answers, [ans.answerIndex]: e.target.value })}
+                        disabled={isSubmitted}
+                      />
+
+                      {/* ปุ่มส่ง */}
+                      {!isSubmitted ? (
+                        <button
+                          onClick={() => handleSubmitAnswer(ans.answerIndex)}
+                          disabled={!answers[ans.answerIndex]?.trim() || submitting}
+                          className="mt-3 w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-all transform hover:scale-105"
+                        >
+                          {submitting ? 'กำลังส่ง...' : 'ส่งคำตอบ'}
+                        </button>
+                      ) : (
+                        <div className="mt-3 text-center text-green-400 font-bold">
+                          ✓ ส่งคำตอบแล้ว
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
-          )}
-        </div>
-      )}
+
+            {/* แสดงสถานะรวม */}
+            {answersWithIndex.every((ans) => ans.submittedAt) && (
+              <div className="mt-6 text-center text-green-400 font-bold text-lg">
+                ✓ ส่งคำตอบครบทุกเลขแล้ว รอผู้เล่นคนอื่น...
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Phase: Voting */}
       {gameState.phase === 'voting' && (() => {
         // คำนวณว่าใครโหวตแล้วบ้าง (ทุกคนต้องโหวต ไม่ว่าคำใบ้ของตัวเองจะถูกเปิดแล้วหรือไม่)
-        const allPlayers = playerAnswers;
+        // ใช้ Set เพื่อหา unique players (เพราะในรอบ 2-3 มีหลาย answers ต่อคน)
+        const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
+        const totalPlayers = uniquePlayerIds.length;
+
         const votedPlayerIds = votes.map((v) => v.playerId);
-        const playersWhoVoted = allPlayers.filter((p) => votedPlayerIds.includes(p.playerId));
-        const playersWhoNotVoted = allPlayers.filter((p) => !votedPlayerIds.includes(p.playerId));
+        const playersWhoVoted = uniquePlayerIds.filter((id) => votedPlayerIds.includes(id));
+        const playersWhoNotVoted = uniquePlayerIds.filter((id) => !votedPlayerIds.includes(id));
 
         return (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
@@ -300,7 +512,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             <div className="bg-white/5 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-white font-semibold">
-                  สถานะการโหวต: {voteCount} / {allPlayers.length}
+                  สถานะการโหวต: {voteCount} / {totalPlayers}
                 </div>
               </div>
 
@@ -309,11 +521,14 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                 <div>
                   <div className="text-green-400 text-sm mb-2">✓ โหวตแล้ว ({playersWhoVoted.length})</div>
                   <div className="space-y-1">
-                    {playersWhoVoted.map((p) => (
-                      <div key={p.playerId} className="text-white/70 text-sm">
-                        • {p.playerName}
-                      </div>
-                    ))}
+                    {playersWhoVoted.map((id) => {
+                      const player = playerAnswers.find((a) => a.playerId === id);
+                      return (
+                        <div key={id} className="text-white/70 text-sm">
+                          • {player?.playerName}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -321,11 +536,14 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                 <div>
                   <div className="text-orange-400 text-sm mb-2">⏳ รอโหวต ({playersWhoNotVoted.length})</div>
                   <div className="space-y-1">
-                    {playersWhoNotVoted.map((p) => (
-                      <div key={p.playerId} className="text-white/50 text-sm">
-                        • {p.playerName}
-                      </div>
-                    ))}
+                    {playersWhoNotVoted.map((id) => {
+                      const player = playerAnswers.find((a) => a.playerId === id);
+                      return (
+                        <div key={id} className="text-white/50 text-sm">
+                          • {player?.playerName}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -334,12 +552,15 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {playerAnswers
               .filter((a) => !a.isRevealed && a.answer.trim() !== '')
-              .map((playerAnswer) => (
-                <button
-                  key={playerAnswer.playerId}
-                  onClick={() => setSelectedPlayerId(playerAnswer.playerId)}
+              .map((playerAnswer) => {
+                const answerWithIndex = playerAnswer as ItoPlayerAnswerWithIndex;
+                const answerId = `${answerWithIndex.playerId}_${answerWithIndex.answerIndex}`;
+                return (
+                  <button
+                    key={answerId}
+                    onClick={() => setSelectedAnswerId(answerId)}
                   className={`p-6 rounded-2xl border-2 transition-all cursor-pointer ${
-                    selectedPlayerId === playerAnswer.playerId
+                    selectedAnswerId === answerId
                       ? 'border-yellow-400 bg-yellow-500/30'
                       : 'border-white/20 bg-white/5 hover:bg-white/10'
                   }`}
@@ -350,12 +571,13 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                     <div className="text-blue-300 text-sm mt-2">(คำใบ้ของคุณ)</div>
                   )}
                 </button>
-              ))}
+                );
+              })}
           </div>
 
             <button
               onClick={handleSubmitVote}
-              disabled={!selectedPlayerId || submitting}
+              disabled={!selectedAnswerId || submitting}
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
             >
               {submitting ? 'กำลังส่ง...' : 'ยืนยันการเลือก'}
@@ -461,6 +683,55 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
           </div>
         );
       })()}
+
+      {/* Phase: Level Complete */}
+      {gameState.phase === 'levelComplete' && (
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/20 text-center">
+          <div className="text-8xl mb-6">🎊</div>
+          <h3 className="text-4xl font-bold text-blue-400 mb-4">ผ่านรอบที่ {gameState.currentLevel}!</h3>
+          <p className="text-white/90 text-xl mb-6">
+            เยี่ยมมาก! เตรียมพร้อมสำหรับรอบถัดไป
+          </p>
+
+          {/* Progress */}
+          <div className="bg-white/5 rounded-2xl p-6 mb-6 max-w-md mx-auto">
+            <div className="text-white/70 mb-2">ความคืบหน้า:</div>
+            <div className="text-3xl font-bold text-yellow-300 mb-4">
+              รอบ {gameState.currentLevel} / {gameState.totalLevels}
+            </div>
+
+            {/* Hearts */}
+            <div className="mb-4">
+              <div className="text-white/70 mb-2">หัวใจคงเหลือ:</div>
+              <div className="flex justify-center gap-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`text-4xl ${
+                      i < gameState.hearts ? 'text-red-500' : 'text-gray-600 opacity-30'
+                    }`}
+                  >
+                    ❤️
+                  </div>
+                ))}
+              </div>
+              <div className="text-2xl font-bold text-white mt-2">
+                {gameState.hearts} / 3
+              </div>
+            </div>
+
+            {/* Next Level Info */}
+            <div className="pt-4 border-t border-white/20">
+              <div className="text-white/90 font-semibold mb-2">
+                รอบถัดไป: คนละ {gameState.currentLevel + 1} เลข
+              </div>
+              <div className="text-white/60 text-sm">
+                กำลังเตรียมโจทย์ใหม่...
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Phase: Finished */}
       {gameState.phase === 'finished' && (

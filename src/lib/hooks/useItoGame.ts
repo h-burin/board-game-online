@@ -12,6 +12,7 @@ interface UseItoGameResult {
   gameState: ItoGameState | null;
   playerAnswers: ItoPlayerAnswer[];
   myAnswer: ItoPlayerAnswer | null;
+  myAnswers: ItoPlayerAnswer[]; // All answers for current player (for multi-number levels)
   loading: boolean;
   error: string | null;
 }
@@ -42,6 +43,11 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
             id: data.id,
             roomId: data.roomId,
             gameId: data.gameId,
+
+            // Level system
+            currentLevel: data.currentLevel || 1,
+            totalLevels: data.totalLevels || 3,
+
             hearts: data.hearts || 3,
             currentRound: data.currentRound || 1,
             totalRounds: data.totalRounds || 0,
@@ -92,6 +98,7 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
             answer: data.answer || '',
             submittedAt: data.submittedAt ? (data.submittedAt as Timestamp).toDate() : undefined,
             isRevealed: data.isRevealed || false,
+            answerIndex: data.answerIndex || 0,
           });
         });
 
@@ -105,13 +112,15 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
     return () => unsubscribe();
   }, [sessionId]);
 
-  // Get my answer
-  const myAnswer = playerId ? playerAnswers.find((a) => a.playerId === playerId) || null : null;
+  // Get my answers (all numbers for this player)
+  const myAnswers = playerId ? playerAnswers.filter((a) => a.playerId === playerId) : [];
+  const myAnswer = myAnswers.length > 0 ? myAnswers[0] : null;
 
   return {
     gameState,
     playerAnswers,
     myAnswer,
+    myAnswers,
     loading,
     error,
   };

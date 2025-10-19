@@ -9,22 +9,25 @@ export type ItoGamePhase =
   | 'writing'      // ผู้เล่นพิมพ์คำใบ้
   | 'voting'       // ผู้เล่นโหวตเลือกคำใบ้ที่น้อยที่สุด
   | 'reveal'       // เปิดเผยผลและตัวเลข
-  | 'finished';    // เกมจบ
+  | 'levelComplete'// รอบจบ รอเริ่มรอบใหม่
+  | 'finished';    // เกมจบทั้งหมด
 
-// สถานะของ Player Answer
+// สถานะของ Player Answer (แต่ละ document = 1 เลข)
 export interface ItoPlayerAnswer {
   playerId: string;
   playerName: string;
-  number: number;           // เลข 1-100 ที่ player คนนี้ได้
+  number: number;           // เลข 1-100
   answer: string;           // คำใบ้ที่พิมพ์
   submittedAt?: Date;       // เวลาที่ส่งคำตอบ
   isRevealed: boolean;      // เปิดเผยแล้วหรือยัง
+  answerIndex: number;      // index ของเลข (0, 1, 2) สำหรับแยกว่าเลขไหน
 }
 
 // Vote ของแต่ละคน
 export interface ItoVote {
   playerId: string;
   votedForPlayerId: string; // โหวตให้ player ไหน
+  votedForAnswerIndex: number; // โหวตให้เลขไหน (answerIndex) - ใช้ร่วมกับ votedForPlayerId
   votedAt: Date;
 }
 
@@ -34,13 +37,17 @@ export interface ItoGameState {
   roomId: string;
   gameId: string;           // BWLxJkh45e6RiALRBmcl
 
-  // Game Progress
-  hearts: number;           // หัวใจที่เหลือ (เริ่มต้น 3)
-  currentRound: number;     // รอบปัจจุบัน (1-based)
-  totalRounds: number;      // จำนวนรอบทั้งหมด = จำนวนผู้เล่น
+  // Level Progress (รอบของเกม)
+  currentLevel: number;     // รอบปัจจุบัน 1=คนละ1เลข, 2=คนละ2เลข, 3=คนละ3เลข
+  totalLevels: number;      // จำนวนรอบทั้งหมด (3 รอบ)
+
+  // Game Progress (ภายในแต่ละรอบ)
+  hearts: number;           // หัวใจที่เหลือ (เริ่มต้น 3, สะสมตลอดทั้งเกม)
+  currentRound: number;     // การโหวตรอบปัจจุบัน (1-based ภายใน level)
+  totalRounds: number;      // จำนวนครั้งที่ต้องโหวตใน level นี้ (= จำนวนผู้เล่น * numbersPerPlayer)
 
   // Question
-  questionId: string;       // ID ของโจทย์จาก ito_questions
+  questionId: string;       // ID ของโจทย์จาก ito_questions (เปลี่ยนทุก level)
   questionText: string;     // โจทย์ (เก็บไว้เพื่อความสะดวก)
 
   // Phase Management
