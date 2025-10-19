@@ -21,7 +21,8 @@
       "Bash(npx firebase-tools deploy --only firestore:rules --project board-game-bc1fe)",
       "Bash(npx firebase-tools login)",
       "Bash(npx eslint src/components/games/ItoGame.tsx --format=compact)",
-      "Bash(npx eslint src/components/games/ItoGame.tsx)"
+      "Bash(npx eslint src/components/games/ItoGame.tsx)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []

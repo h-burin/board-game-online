@@ -16,6 +16,7 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ItoGameState, ItoPlayerAnswer, ItoQuestion, ItoReadyStatus } from '@/types/ito';
@@ -378,7 +379,15 @@ export async function checkAllAnswersSubmitted(sessionId: string): Promise<boole
       return false;
     }
 
-    const details: any[] = [];
+    const details: Array<{
+      docId: string;
+      playerId: string;
+      answerIndex: number;
+      hasAnswer: boolean;
+      answerLength: number;
+      hasSubmittedAt: boolean;
+      isSubmitted: boolean;
+    }> = [];
     const allSubmitted = snapshot.docs.every((doc) => {
       const data = doc.data();
       const hasAnswer = !!data.answer && data.answer.trim() !== '';
@@ -573,7 +582,7 @@ export async function revealAndCheck(
 
     // 3. หา player answer ที่ถูกโหวต (ใช้ field playerId + answerIndex เทียบ)
     let selectedAnswer: ItoPlayerAnswer | null = null;
-    let answerDocRef: any = null;
+    let answerDocRef: DocumentReference | null = null;
 
     console.log('🔍 Searching for answer:', {
       selectedPlayerId,
@@ -618,7 +627,13 @@ export async function revealAndCheck(
 
     // TypeScript type narrowing
     const foundAnswer: ItoPlayerAnswer = selectedAnswer;
-    const foundDocRef = answerDocRef;
+
+    if (!answerDocRef) {
+      console.error('❌ Answer document reference not found');
+      throw new Error('Answer document reference not found');
+    }
+
+    const foundDocRef: DocumentReference = answerDocRef;
 
     console.log('✅ Found answer:', {
       docId: foundDocRef.id,

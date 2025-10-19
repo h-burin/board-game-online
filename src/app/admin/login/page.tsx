@@ -21,7 +21,7 @@ export default function AdminLoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       console.log('✅ Login successful');
       router.push('/admin');
-    } catch (err: any) {
+    } catch (err) {
       console.error('❌ Login error:', err);
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     } finally {

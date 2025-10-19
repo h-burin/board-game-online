@@ -50,10 +50,7 @@ export async function POST(
     console.log('✅ Reveal result:', result);
 
     // 3. ส่งผลกลับไป (ฝั่ง client จะจัดการเปลี่ยน phase เอง)
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('❌ Error revealing votes:', error);
     console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
