@@ -187,10 +187,12 @@ useEffect(() => {
 - [x] Auto-reveal last number works
 - [x] Level transition works
 - [x] Level 2 starts successfully
-- [ ] **Level 2 UI shows input fields** ← ปัญหาหลัก
-- [ ] Remove auto-submit on timeout
-- [ ] Test complete 3-level flow
-- [ ] Refactor code for maintainability
+- [x] Level 2 UI shows input fields
+- [x] Multi-reveal system (reveal all numbers ≤ selected)
+- [x] Show revealed numbers throughout all phases
+- [x] Refactor code for maintainability
+- [x] **Enhanced levelComplete phase with ready system** ← LATEST FEATURE
+- [ ] Test complete 3-level flow with new ready system
 
 ---
 
@@ -209,3 +211,147 @@ useEffect(() => {
 3. **ทดสอบ Full Flow**:
    - รอบ 1 (2 เลข) → รอบ 2 (4 เลข) → รอบ 3 (6 เลข)
    - ทดสอบทั้ง ชนะ และ แพ้
+
+---
+
+## ✅ COMPLETED: Enhanced levelComplete Phase (2025-01-XX)
+
+### 🎯 New Feature: Manual Ready System
+
+**What Changed:**
+- Removed auto-timeout (5 seconds) from levelComplete phase
+- Changed to manual ready system where ALL players must confirm before proceeding
+- Shows complete game results with all revealed numbers and hints
+
+### 📋 Implementation Details:
+
+**1. New Database Structure:**
+```
+game_sessions/{sessionId}/ready_status/{playerId}
+├── playerId: string
+├── playerName: string
+└── readyAt: Timestamp
+```
+
+**2. New Functions (src/lib/firebase/ito.ts):**
+- `markPlayerReady()` - Mark player as ready
+- `checkAllPlayersReady()` - Check if all players are ready
+- `clearReadyStatus()` - Clear ready status when starting new level
+
+**3. New Hook (src/lib/hooks/useReadyStatus.ts):**
+- Real-time listener for ready_status subcollection
+- Returns: `{ readyPlayers, readyCount, loading }`
+
+**4. UI Changes (src/components/games/ItoGame.tsx):**
+
+**levelComplete Phase Now Shows:**
+- 🎊 Celebration header with level number
+- 📋 All revealed numbers with hints and player names (sorted)
+- ❤️ Hearts remaining + progress (Level X / Y)
+- 👥 Player ready status:
+  - ✅ Ready players (green)
+  - ⏳ Waiting players (orange)
+  - Count: "X / Y คนพร้อมแล้ว"
+- 🔘 Ready button:
+  - Level 1-2: "พร้อมไปรอบถัดไป"
+  - Level 3: "พร้อมดูผลลัพธ์"
+  - After click: "✓ คุณพร้อมแล้ว" + "รอผู้เล่นคนอื่น..."
+
+**5. Auto-Check Logic:**
+```typescript
+useEffect(() => {
+  if (gameState.phase !== 'levelComplete') return;
+
+  const checkReady = async () => {
+    const allReady = await checkAllPlayersReady(sessionId);
+
+    if (allReady) {
+      // Level 3 → phase: 'finished', status: 'won'
+      // Level 1-2 → POST /api/games/ito/{sessionId}/nextLevel
+    }
+  };
+
+  checkReady();
+}, [gameState, sessionId, readyCount]); // Triggers when readyCount changes
+```
+
+### 🎮 User Flow:
+
+**Before:**
+1. Reveal phase ends
+2. Auto-transition to levelComplete
+3. Show "ผ่านรอบที่ X!" for 5 seconds
+4. Auto-start next level
+
+**After:**
+1. Reveal phase ends
+2. Auto-transition to levelComplete
+3. Show complete results:
+   - All revealed numbers with hints
+   - Player names for each number
+   - Hearts remaining
+   - Progress bar
+4. Players see ready status in real-time
+5. Each player clicks "พร้อม" button
+6. When ALL players ready → auto-start next level
+7. Level 3 → click "พร้อมดูผลลัพธ์" → phase: 'finished'
+
+### 🔧 Files Modified:
+
+1. **src/types/ito.ts**
+   - Added `ItoReadyStatus` interface
+
+2. **src/lib/firebase/ito.ts**
+   - Added 3 new functions (lines 776-853)
+   - Modified `startNextLevel()` to clear ready_status
+
+3. **src/lib/hooks/useReadyStatus.ts** (NEW)
+   - Real-time hook for ready status updates
+
+4. **src/components/games/ItoGame.tsx**
+   - Added imports: `useReadyStatus`, `markPlayerReady`, `checkAllPlayersReady`
+   - Modified auto-check useEffect (lines 333-374)
+   - Completely rewrote levelComplete phase UI (lines 750-915)
+
+### ✅ Testing Checklist:
+
+- [ ] 2 players: Both click ready → next level starts
+- [ ] 3 players: 2 click ready → still waiting → 3rd clicks → starts
+- [ ] Level 1 complete → shows "พร้อมไปรอบถัดไป"
+- [ ] Level 3 complete → shows "พร้อมดูผลลัพธ์"
+- [ ] All revealed numbers display correctly with hints
+- [ ] Player names show correctly
+- [ ] Ready status updates in real-time
+- [ ] After clicking ready, button changes to "✓ คุณพร้อมแล้ว"
+- [ ] Level 3 → finished phase with correct status
+
+### 📊 Database Impact:
+
+**New Subcollection:**
+```
+game_sessions/{sessionId}/ready_status/
+```
+
+**Cleanup:**
+- Subcollection is cleared when `startNextLevel()` is called
+- No manual cleanup needed on game end (small subcollection, auto-deleted with session)
+
+---
+
+## 🎓 Technical Notes:
+
+### Why Subcollection Instead of Array?
+- **Real-time updates**: Firestore listeners work better with subcollections
+- **Scalability**: No document size limits
+- **Popular choice**: Industry standard for this pattern
+- **Easy cleanup**: Can batch delete with `clearReadyStatus()`
+
+### Why useEffect with readyCount Dependency?
+- Triggers re-check every time readyCount changes
+- Ensures immediate transition when last player clicks ready
+- No polling needed - pure event-driven
+
+### Why Different Button Text for Level 3?
+- User experience: Clear indication that game is ending
+- "พร้อมดูผลลัพธ์" vs "พร้อมไปรอบถัดไป"
+- Sets proper expectations for players

@@ -31,6 +31,13 @@ export interface ItoVote {
   votedAt: Date;
 }
 
+// Ready Status สำหรับ levelComplete phase
+export interface ItoReadyStatus {
+  playerId: string;
+  playerName: string;
+  readyAt: Date;
+}
+
 // Game State หลัก
 export interface ItoGameState {
   id: string;

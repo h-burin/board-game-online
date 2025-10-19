@@ -14,7 +14,12 @@
       "Bash(git push)",
       "Bash(pkill -f \"next dev\")",
       "Bash(npm run dev)",
-      "Bash(pkill -9 node)"
+      "Bash(pkill -9 node)",
+      "Bash(firebase deploy --only firestore:rules)",
+      "Bash(npx firebase deploy --only firestore:rules)",
+      "Bash(npx firebase-tools deploy --only firestore:rules)",
+      "Bash(npx firebase-tools deploy --only firestore:rules --project board-game-bc1fe)",
+      "Bash(npx firebase-tools login)"
     ],
     "deny": [],
     "ask": []

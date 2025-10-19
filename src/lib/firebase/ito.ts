@@ -18,7 +18,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { ItoGameState, ItoPlayerAnswer, ItoQuestion } from '@/types/ito';
+import type { ItoGameState, ItoPlayerAnswer, ItoQuestion, ItoReadyStatus } from '@/types/ito';
 
 /**
  * สุ่มเลือกโจทย์จาก ito_questions
@@ -161,6 +161,9 @@ export async function startNextLevel(
     const votesSnap = await getDocs(votesRef);
     const deleteVotesPromises = votesSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
     await Promise.all(deleteVotesPromises);
+
+    // 8. ลบ ready_status เก่าออก
+    await clearReadyStatus(sessionId);
 
     // 8. ตรวจสอบว่าสร้างครบจริงหรือไม่
     const verifySnap = await getDocs(playerAnswersRef);
@@ -770,5 +773,84 @@ export async function revealAndCheck(
   } catch (error) {
     console.error('❌ Error revealing and checking:', error);
     return null;
+  }
+}
+
+/**
+ * Mark player as ready (สำหรับ levelComplete phase)
+ */
+export async function markPlayerReady(
+  sessionId: string,
+  playerId: string,
+  playerName: string
+): Promise<boolean> {
+  try {
+    const readyRef = doc(db, `game_sessions/${sessionId}/ready_status`, playerId);
+    await setDoc(readyRef, {
+      playerId,
+      playerName,
+      readyAt: serverTimestamp(),
+    });
+
+    console.log('✅ Player marked as ready:', { sessionId, playerId });
+    return true;
+  } catch (error) {
+    console.error('❌ Error marking player ready:', error);
+    return false;
+  }
+}
+
+/**
+ * ตรวจสอบว่าทุกคนพร้อมหรือยัง
+ */
+export async function checkAllPlayersReady(sessionId: string): Promise<boolean> {
+  try {
+    // ดึงจำนวนผู้เล่นทั้งหมด
+    const answersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+    const answersSnap = await getDocs(answersRef);
+
+    // นับ unique players
+    const uniquePlayerIds = new Set<string>();
+    answersSnap.docs.forEach((doc) => {
+      const data = doc.data();
+      uniquePlayerIds.add(data.playerId);
+    });
+
+    const totalPlayers = uniquePlayerIds.size;
+
+    // ดึงจำนวนที่พร้อมแล้ว
+    const readyRef = collection(db, `game_sessions/${sessionId}/ready_status`);
+    const readySnap = await getDocs(readyRef);
+    const readyCount = readySnap.size;
+
+    console.log('🔍 Ready status check:', {
+      totalPlayers,
+      readyCount,
+      allReady: readyCount === totalPlayers && totalPlayers > 0,
+    });
+
+    return readyCount === totalPlayers && totalPlayers > 0;
+  } catch (error) {
+    console.error('❌ Error checking ready status:', error);
+    return false;
+  }
+}
+
+/**
+ * ลบ ready_status เมื่อเริ่ม level ใหม่
+ */
+export async function clearReadyStatus(sessionId: string): Promise<boolean> {
+  try {
+    const readyRef = collection(db, `game_sessions/${sessionId}/ready_status`);
+    const readySnap = await getDocs(readyRef);
+
+    const deletePromises = readySnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+
+    console.log('✅ Ready status cleared:', sessionId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error clearing ready status:', error);
+    return false;
   }
 }

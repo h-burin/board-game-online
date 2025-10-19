@@ -10,7 +10,8 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useItoGame } from '@/lib/hooks/useItoGame';
 import { useVotes } from '@/lib/hooks/useVotes';
-import { submitPlayerAnswer, submitVote, checkAllAnswersSubmitted, startVotingPhase } from '@/lib/firebase/ito';
+import { useReadyStatus } from '@/lib/hooks/useReadyStatus';
+import { submitPlayerAnswer, submitVote, checkAllAnswersSubmitted, startVotingPhase, markPlayerReady, checkAllPlayersReady } from '@/lib/firebase/ito';
 
 interface ItoGameProps {
   sessionId: string;
@@ -31,6 +32,7 @@ type ItoPlayerAnswerWithIndex = {
 export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const { gameState, playerAnswers, myAnswer, myAnswers, loading } = useItoGame(sessionId, playerId);
   const { votes, voteCount } = useVotes(sessionId);
+  const { readyPlayers, readyCount } = useReadyStatus(sessionId);
 
   const [answers, setAnswers] = useState<{ [answerIndex: number]: string }>({});
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null); // format: "playerId_answerIndex"
@@ -328,31 +330,48 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     return () => clearTimeout(timer);
   }, [gameState, sessionId]);
 
-  // Auto-start next level
+  // Auto-check if all players ready (levelComplete phase)
   useEffect(() => {
     if (!gameState || gameState.phase !== 'levelComplete') return;
 
-    const timer = setTimeout(async () => {
-      try {
-        // เรียก API เพื่อเริ่ม level ใหม่
-        const response = await fetch(`/api/games/ito/${sessionId}/nextLevel`, {
-          method: 'POST',
-        });
+    const checkReady = async () => {
+      const allReady = await checkAllPlayersReady(sessionId);
 
-        const data = await response.json();
+      if (allReady) {
+        console.log('✅ All players ready, starting next level');
 
-        if (!data.success) {
-          console.error('❌ Failed to start next level:', data.error);
-        } else {
-          console.log('✅ Started next level');
+        try {
+          // Level 3 → ไปหน้า finished
+          if (gameState.currentLevel >= gameState.totalLevels) {
+            const sessionRef = doc(db, 'game_sessions', sessionId);
+            await updateDoc(sessionRef, {
+              phase: 'finished',
+              status: 'won',
+              updatedAt: serverTimestamp(),
+            });
+            return;
+          }
+
+          // Level 1-2 → ไป level ถัดไป
+          const response = await fetch(`/api/games/ito/${sessionId}/nextLevel`, {
+            method: 'POST',
+          });
+
+          const data = await response.json();
+
+          if (!data.success) {
+            console.error('❌ Failed to start next level:', data.error);
+          } else {
+            console.log('✅ Started next level');
+          }
+        } catch (error) {
+          console.error('❌ Error starting next level:', error);
         }
-      } catch (error) {
-        console.error('❌ Error starting next level:', error);
       }
-    }, 5000); // แสดงหน้า levelComplete 5 วินาที
+    };
 
-    return () => clearTimeout(timer);
-  }, [gameState, sessionId]);
+    checkReady();
+  }, [gameState, sessionId, readyCount]); // Listen to readyCount changes
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -728,53 +747,172 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       })()}
 
       {/* Phase: Level Complete */}
-      {gameState.phase === 'levelComplete' && (
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/20 text-center">
-          <div className="text-8xl mb-6">🎊</div>
-          <h3 className="text-4xl font-bold text-blue-400 mb-4">ผ่านรอบที่ {gameState.currentLevel}!</h3>
-          <p className="text-white/90 text-xl mb-6">
-            เยี่ยมมาก! เตรียมพร้อมสำหรับรอบถัดไป
-          </p>
+      {gameState.phase === 'levelComplete' && (() => {
+        // หาผู้เล่นทั้งหมด (unique)
+        const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
+        const totalPlayers = uniquePlayerIds.length;
 
-          {/* Progress */}
-          <div className="bg-white/5 rounded-2xl p-6 mb-6 max-w-md mx-auto">
-            <div className="text-white/70 mb-2">ความคืบหน้า:</div>
-            <div className="text-3xl font-bold text-yellow-300 mb-4">
-              รอบ {gameState.currentLevel} / {gameState.totalLevels}
+        // สร้าง map ของ playerId → playerName
+        const playerNames: { [key: string]: string } = {};
+        playerAnswers.forEach((a) => {
+          if (!playerNames[a.playerId]) {
+            playerNames[a.playerId] = a.playerName;
+          }
+        });
+
+        // หาว่าใครพร้อมแล้ว
+        const readyPlayerIds = readyPlayers.map((r) => r.playerId);
+        const notReadyPlayers = uniquePlayerIds.filter((id) => !readyPlayerIds.includes(id));
+
+        // เรียงเลขที่เปิดแล้ว + ดึงคำใบ้
+        const revealedAnswers = playerAnswers
+          .filter((a) => a.isRevealed)
+          .sort((a, b) => a.number - b.number);
+
+        // เช็คว่า player ปัจจุบันพร้อมหรือยัง
+        const isPlayerReady = readyPlayerIds.includes(playerId);
+
+        const handleReady = async () => {
+          if (submitting || isPlayerReady) return;
+
+          setSubmitting(true);
+          const playerName = playerNames[playerId] || 'Unknown';
+          const success = await markPlayerReady(sessionId, playerId, playerName);
+
+          if (success) {
+            console.log('✅ Marked as ready');
+          } else {
+            alert('เกิดข้อผิดพลาดในการยืนยัน');
+          }
+          setSubmitting(false);
+        };
+
+        return (
+          <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/20">
+            <div className="text-center mb-8">
+              <div className="text-8xl mb-6">🎊</div>
+              <h3 className="text-4xl font-bold text-blue-400 mb-4">ผ่านรอบที่ {gameState.currentLevel}!</h3>
+              <p className="text-white/90 text-xl">
+                {gameState.currentLevel >= gameState.totalLevels
+                  ? 'เยี่ยมมาก! เตรียมพร้อมดูผลลัพธ์'
+                  : 'เยี่ยมมาก! เตรียมพร้อมสำหรับรอบถัดไป'}
+              </p>
             </div>
 
-            {/* Hearts */}
-            <div className="mb-4">
-              <div className="text-white/70 mb-2">หัวใจคงเหลือ:</div>
-              <div className="flex justify-center gap-2">
-                {Array.from({ length: 3 }).map((_, i) => (
+            {/* เลขที่เปิดแล้วทั้งหมด */}
+            <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-2xl p-6 mb-6 border border-green-400/30">
+              <h4 className="text-white font-bold mb-4 text-center text-xl">เลขที่เปิดแล้วทั้งหมด</h4>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {revealedAnswers.map((ans, i) => (
                   <div
                     key={i}
-                    className={`text-4xl ${
-                      i < gameState.hearts ? 'text-red-500' : 'text-gray-600 opacity-30'
-                    }`}
+                    className="bg-white/10 rounded-xl p-4 flex items-center justify-between"
                   >
-                    ❤️
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl font-bold text-yellow-300 min-w-[60px]">
+                        [{ans.number}]
+                      </div>
+                      <div className="text-left">
+                        <div className="text-white text-lg">"{ans.answer}"</div>
+                        <div className="text-white/50 text-sm">{ans.playerName}</div>
+                      </div>
+                    </div>
+                    <div className="text-green-400 text-xl">✓</div>
                   </div>
                 ))}
               </div>
-              <div className="text-2xl font-bold text-white mt-2">
-                {gameState.hearts} / 3
+            </div>
+
+            {/* Progress & Hearts */}
+            <div className="bg-white/5 rounded-2xl p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-white/70 text-sm">ความคืบหน้า:</div>
+                  <div className="text-2xl font-bold text-yellow-300">
+                    รอบ {gameState.currentLevel} / {gameState.totalLevels}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-white/70 text-sm text-center mb-1">หัวใจคงเหลือ</div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`text-3xl ${
+                          i < gameState.hearts ? 'text-red-500' : 'text-gray-600 opacity-30'
+                        }`}
+                      >
+                        ❤️
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xl font-bold text-white text-center">
+                    {gameState.hearts} / 3
+                  </div>
+                </div>
+              </div>
+
+              {gameState.currentLevel < gameState.totalLevels && (
+                <div className="pt-4 border-t border-white/20 text-center">
+                  <div className="text-white/90 font-semibold">
+                    รอบถัดไป: คนละ {gameState.currentLevel + 1} เลข
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* สถานะผู้เล่น */}
+            <div className="bg-white/5 rounded-2xl p-6 mb-6">
+              <h4 className="text-white font-bold mb-3 text-center">สถานะผู้เล่น</h4>
+              <div className="text-center text-white/70 mb-4">
+                {readyCount} / {totalPlayers} คนพร้อมแล้ว
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* พร้อมแล้ว */}
+                <div>
+                  <div className="text-green-400 text-sm mb-2 text-center">✅ พร้อมแล้ว</div>
+                  <div className="space-y-1">
+                    {readyPlayers.map((r) => (
+                      <div key={r.playerId} className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1">
+                        {r.playerName}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* รออยู่ */}
+                <div>
+                  <div className="text-orange-400 text-sm mb-2 text-center">⏳ รออยู่</div>
+                  <div className="space-y-1">
+                    {notReadyPlayers.map((id) => (
+                      <div key={id} className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1">
+                        {playerNames[id]}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Next Level Info */}
-            <div className="pt-4 border-t border-white/20">
-              <div className="text-white/90 font-semibold mb-2">
-                รอบถัดไป: คนละ {gameState.currentLevel + 1} เลข
+            {/* ปุ่ม */}
+            {!isPlayerReady ? (
+              <button
+                onClick={handleReady}
+                disabled={submitting}
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
+              >
+                {submitting ? 'กำลังบันทึก...' : gameState.currentLevel >= gameState.totalLevels ? 'พร้อมดูผลลัพธ์' : 'พร้อมไปรอบถัดไป'}
+              </button>
+            ) : (
+              <div className="text-center py-4">
+                <div className="text-green-400 text-2xl font-bold mb-2">✓ คุณพร้อมแล้ว</div>
+                <div className="text-white/70">รอผู้เล่นคนอื่น...</div>
               </div>
-              <div className="text-white/60 text-sm">
-                กำลังเตรียมโจทย์ใหม่...
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Phase: Finished */}
       {gameState.phase === 'finished' && (
