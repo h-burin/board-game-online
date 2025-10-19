@@ -37,6 +37,10 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [revealing, setRevealing] = useState(false);
+  const [lastRevealResult, setLastRevealResult] = useState<{
+    isCorrect: boolean;
+    heartsLost: number;
+  } | null>(null);
   const prevAnswersRef = useRef<string>('');
   const prevLevelRef = useRef<number>(0);
 
@@ -185,6 +189,13 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     checkAnswers();
   }, [gameState, playerAnswers, sessionId, revealing]);
 
+  // Reset lastRevealResult เมื่อเข้า voting phase ใหม่
+  useEffect(() => {
+    if (gameState?.phase === 'voting') {
+      setLastRevealResult(null);
+    }
+  }, [gameState?.phase]);
+
   // Auto-check if all votes submitted (Voting phase)
   useEffect(() => {
     if (!gameState || gameState.phase !== 'voting' || revealing) return;
@@ -254,6 +265,11 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       if (data.success) {
         console.log('✅ Votes revealed:', data);
+        // เก็บผลลัพธ์จาก API
+        setLastRevealResult({
+          isCorrect: data.isCorrect,
+          heartsLost: data.heartsLost,
+        });
         // Phase จะเปลี่ยนเป็น 'reveal' อัตโนมัติจาก Firebase
         // ไม่ต้องทำอะไร รอ useEffect จัดการต่อ
       } else {
@@ -357,7 +373,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">เกมความสามัคคี</h2>
-            <p className="text-blue-200">รอบ {gameState.currentRound}/{gameState.totalRounds}</p>
+            <p className="text-blue-200">เปิดแล้ว {gameState.revealedNumbers.length}/{gameState.totalRounds} เลข</p>
           </div>
 
           {/* Hearts */}
@@ -588,31 +604,24 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       {/* Phase: Reveal */}
       {gameState.phase === 'reveal' && (() => {
-        // Find the last revealed player answer
+        // Find the last revealed player answer (เลขที่ถูกโหวต)
         const lastRevealed = playerAnswers.find(
           (a) => a.isRevealed && a.number === gameState.revealedNumbers[gameState.revealedNumbers.length - 1]
         );
 
         if (!lastRevealed) return null;
 
-        // Check if this was the correct choice
-        // หมายเหตุ: ตอนนี้ lastRevealed ถูก mark เป็น isRevealed = true แล้ว
-        // ต้องเช็คว่า lastRevealed.number เป็นตัวที่เล็กที่สุดใน (unrevealed + lastRevealed) หรือไม่
-        const unrevealedNumbers = playerAnswers
-          .filter((a) => !a.isRevealed)
-          .map((a) => a.number);
-
-        // รวม lastRevealed.number เข้าไปด้วยเพื่อเปรียบเทียบ
-        const numbersBeforeReveal = [...unrevealedNumbers, lastRevealed.number];
-        const smallestBeforeReveal = Math.min(...numbersBeforeReveal);
-        const isCorrect = lastRevealed.number === smallestBeforeReveal;
+        // ใช้ผลลัพธ์จาก API (ถูกคำนวณมาจาก backend แล้ว)
+        // ถ้ายังไม่มีผล (กรณี refresh หน้า) ให้ fallback เป็น true
+        const isCorrect = lastRevealResult?.isCorrect ?? true;
+        const heartsLost = lastRevealResult?.heartsLost ?? 0;
 
         console.log('🔍 UI Reveal check:', {
           lastRevealedNumber: lastRevealed.number,
-          unrevealedNumbers,
-          numbersBeforeReveal,
-          smallestBeforeReveal,
+          revealedNumbers: gameState.revealedNumbers,
           isCorrect,
+          heartsLost,
+          fromAPI: !!lastRevealResult,
         });
 
         return (
@@ -647,7 +656,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                   <div className="text-6xl mb-2">❌</div>
                   <div className="text-2xl font-bold text-red-400">ผิด!</div>
                   <div className="text-white/70 mt-2">
-                    ข้ามตัวเลขไป - เสียหัวใจ
+                    ข้ามตัวเลขไป - เสียหัวใจ {heartsLost} ดวง
                   </div>
                 </div>
               )}
@@ -776,9 +785,9 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
             {/* Rounds */}
             <div className="mb-6">
-              <div className="text-white/70 mb-2">รอบที่เล่น:</div>
+              <div className="text-white/70 mb-2">เลขที่เปิดแล้ว:</div>
               <div className="text-2xl font-bold text-white">
-                {gameState.currentRound - 1} / {gameState.totalRounds}
+                {gameState.revealedNumbers.length} / {gameState.totalRounds}
               </div>
             </div>
 

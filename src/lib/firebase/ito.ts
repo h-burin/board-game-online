@@ -548,10 +548,10 @@ export async function revealAndCheck(
 
     answersSnap.docs.forEach((docSnap) => {
       const data = docSnap.data() as ItoPlayerAnswer;
-      // หาตัวที่ตรงกับ selectedPlayerId + answerIndex และยังไม่ถูก reveal
+      // หาตัวที่ตรงกับ selectedPlayerId + answerIndex
+      // ไม่ต้องเช็ค !isRevealed เพราะอาจมี race condition หรือ double-call
       if (data.playerId === selectedPlayerId &&
-          data.answerIndex === selectedAnswerIndex &&
-          !data.isRevealed) {
+          data.answerIndex === selectedAnswerIndex) {
         selectedAnswer = data;
         answerDocRef = docSnap.ref;
       }
@@ -567,14 +567,32 @@ export async function revealAndCheck(
       throw new Error('Player answer not found');
     }
 
+    // TypeScript type narrowing
+    const foundAnswer: ItoPlayerAnswer = selectedAnswer;
+    const foundDocRef = answerDocRef;
+
     console.log('✅ Found answer:', {
-      docId: answerDocRef.id,
-      playerId: selectedAnswer.playerId,
-      answerIndex: selectedAnswer.answerIndex,
-      number: selectedAnswer.number,
+      docId: foundDocRef.id,
+      playerId: foundAnswer.playerId,
+      answerIndex: foundAnswer.answerIndex,
+      number: foundAnswer.number,
+      isRevealed: foundAnswer.isRevealed,
     });
 
-    const selectedNumber = selectedAnswer.number;
+    const selectedNumber = foundAnswer.number;
+
+    // ตรวจสอบว่าเลขนี้ถูก reveal ไปแล้วหรือยัง (ป้องกัน double-call)
+    if (foundAnswer.isRevealed) {
+      console.log('⚠️ This answer was already revealed, skipping...');
+      // Return ผลลัพธ์จาก gameState ปัจจุบัน
+      return {
+        success: true,
+        number: selectedNumber,
+        isCorrect: true, // ไม่สามารถคำนวณได้ เพราะข้อมูลเปลี่ยนไปแล้ว
+        heartsLost: 0,
+        newHearts: gameState.hearts,
+      };
+    }
 
     const unrevealedNumbers: number[] = [];
     const allPlayerAnswers: { playerId: string; number: number; isRevealed: boolean }[] = [];
@@ -619,13 +637,35 @@ export async function revealAndCheck(
 
     const newHearts = Math.max(0, gameState.hearts - heartsLost);
 
-    // 7. อัปเดต game state
-    const newRevealedNumbers = [...gameState.revealedNumbers, selectedNumber].sort(
+    // 7. หาเลขทั้งหมดที่ต้องเปิด (เลข ≤ selectedNumber)
+    const numbersToReveal = unrevealedNumbers.filter((num) => num <= selectedNumber);
+
+    console.log('🔍 Numbers to reveal:', {
+      selectedNumber,
+      unrevealedNumbers,
+      numbersToReveal,
+      count: numbersToReveal.length,
+    });
+
+    // 8. Mark ทุกเลขที่ต้องเปิดเป็น isRevealed = true
+    const markRevealedPromises = answersSnap.docs
+      .filter((doc) => {
+        const data = doc.data() as ItoPlayerAnswer;
+        return !data.isRevealed && numbersToReveal.includes(data.number);
+      })
+      .map((doc) => updateDoc(doc.ref, { isRevealed: true }));
+
+    await Promise.all(markRevealedPromises);
+    console.log(`✅ Marked ${markRevealedPromises.length} answers as revealed`);
+
+    // 9. อัปเดต game state
+    const newRevealedNumbers = [...gameState.revealedNumbers, ...numbersToReveal].sort(
       (a, b) => a - b
     );
+    // currentRound = จำนวนครั้งที่โหวต (ไม่ใช่จำนวนเลขที่เปิด)
     const newRound = gameState.currentRound + 1;
 
-    // ตรวจสอบว่า Level นี้จบหรือยัง
+    // ตรวจสอบว่า Level นี้จบหรือยัง (เช็คจากจำนวนเลขที่เปิด ไม่ใช่ round)
     const allRevealedInLevel = newRevealedNumbers.length >= gameState.totalRounds;
     const onlyOneLeft = newRevealedNumbers.length === gameState.totalRounds - 1;
     const isLevelComplete = allRevealedInLevel || onlyOneLeft;
@@ -665,12 +705,12 @@ export async function revealAndCheck(
     // ถ้าเหลือเลขสุดท้าย 1 ตัว ให้เปิดเลขนั้นอัตโนมัติด้วย
     let finalRevealedNumbers = newRevealedNumbers;
     if (onlyOneLeft && newHearts > 0) {
-      // หาเลขทั้งหมดที่ยังไม่ถูกเปิด (ไม่รวม selectedNumber ที่เพิ่งเปิด)
-      const remainingNumbers = unrevealedNumbers.filter((num) => num !== selectedNumber);
+      // หาเลขทั้งหมดที่ยังไม่ถูกเปิด (ไม่รวม numbersToReveal ที่เพิ่งเปิด)
+      const remainingNumbers = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
 
       console.log('🔍 Auto-reveal last number check:', {
         unrevealedNumbers,
-        selectedNumber,
+        numbersToReveal,
         remainingNumbers,
         shouldAutoReveal: remainingNumbers.length === 1,
       });
@@ -701,12 +741,7 @@ export async function revealAndCheck(
       updatedAt: serverTimestamp(),
     });
 
-    // 8. ทำเครื่องหมาย player answer ว่าเปิดแล้ว
-    await updateDoc(answerDocRef, {
-      isRevealed: true,
-    });
-
-    // 9. ลบ votes collection เพื่อเริ่มรอบใหม่
+    // 10. ลบ votes collection เพื่อเริ่มรอบใหม่
     const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
     const votesSnap = await getDocs(votesRef);
     const deletePromises = votesSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
