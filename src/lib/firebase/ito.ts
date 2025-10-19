@@ -682,22 +682,17 @@ export async function revealAndCheck(
     const isLevelComplete = allRevealedInLevel || onlyOneLeft;
 
     // ตรวจสอบว่าเกมทั้งหมดจบหรือไม่
+    // เปลี่ยนเป็น reveal เสมอ แล้วให้ frontend auto-transition
     let newPhase: 'reveal' | 'levelComplete' | 'finished' = 'reveal';
     let newStatus: 'playing' | 'won' | 'lost' = 'playing';
 
     if (newHearts === 0) {
-      // หัวใจหมด = แพ้ทันที
-      newPhase = 'finished';
+      // หัวใจหมด = แพ้ทันที (แต่ยังแสดง reveal ก่อน)
       newStatus = 'lost';
     } else if (isLevelComplete) {
       // Level นี้จบแล้ว
-      if (gameState.currentLevel < gameState.totalLevels) {
-        // ยังมี level ถัดไป
-        newPhase = 'levelComplete';
-        newStatus = 'playing';
-      } else {
-        // จบ level สุดท้ายแล้ว = ชนะ
-        newPhase = 'finished';
+      if (gameState.currentLevel >= gameState.totalLevels) {
+        // จบ level สุดท้ายแล้ว
         newStatus = 'won';
       }
     }

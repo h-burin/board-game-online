@@ -30,7 +30,7 @@ type ItoPlayerAnswerWithIndex = {
 };
 
 export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
-  const { gameState, playerAnswers, myAnswer, myAnswers, loading } = useItoGame(sessionId, playerId);
+  const { gameState, playerAnswers, myAnswers, loading } = useItoGame(sessionId, playerId);
   const { votes, voteCount } = useVotes(sessionId);
   const { readyPlayers, readyCount } = useReadyStatus(sessionId);
 
@@ -305,22 +305,18 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
           phase: 'finished',
           updatedAt: serverTimestamp(),
         });
+      } else if (gameState.status === 'won') {
+        // ชนะแล้ว → finished
+        await updateDoc(sessionRef, {
+          phase: 'finished',
+          updatedAt: serverTimestamp(),
+        });
       } else if (allRevealedInLevel) {
-        // Level นี้จบแล้ว
-        if (gameState.currentLevel < gameState.totalLevels) {
-          // ยังมี level ถัดไป → levelComplete
-          await updateDoc(sessionRef, {
-            phase: 'levelComplete',
-            updatedAt: serverTimestamp(),
-          });
-        } else {
-          // จบ level สุดท้ายแล้ว → finished (ชนะ)
-          await updateDoc(sessionRef, {
-            phase: 'finished',
-            status: 'won',
-            updatedAt: serverTimestamp(),
-          });
-        }
+        // Level นี้จบแล้ว (แต่เกมยังไม่จบ)
+        await updateDoc(sessionRef, {
+          phase: 'levelComplete',
+          updatedAt: serverTimestamp(),
+        });
       } else {
         // Level ยังไม่จบ → กลับไป voting
         await startVotingPhase(sessionId);
@@ -485,7 +481,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         });
 
         const playersCompleted = Object.values(playerSubmissionStatus).filter((p) => p.submittedCount === p.totalExpected);
-        const playersNotCompleted = Object.entries(playerSubmissionStatus).filter(([_, p]) => p.submittedCount < p.totalExpected);
+        const playersNotCompleted = Object.entries(playerSubmissionStatus).filter(([, p]) => p.submittedCount < p.totalExpected);
 
         return (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
@@ -856,10 +852,11 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
               </p>
             </div>
 
-            {/* เลขที่เปิดแล้วทั้งหมด */}
+            {/* เลขทั้งหมด (เปิดแล้ว + ยังไม่เปิด) */}
             <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-2xl p-6 mb-6 border border-green-400/30">
-              <h4 className="text-white font-bold mb-4 text-center text-xl">เลขที่เปิดแล้วทั้งหมด</h4>
+              <h4 className="text-white font-bold mb-4 text-center text-xl">ตัวเลขทั้งหมดในรอบนี้</h4>
               <div className="space-y-3 max-h-96 overflow-y-auto">
+                {/* เลขที่เปิดแล้ว */}
                 {revealedAnswers.map((ans, i) => (
                   <div
                     key={i}
@@ -870,7 +867,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                         [{ans.number}]
                       </div>
                       <div className="text-left">
-                        <div className="text-white text-lg">"{ans.answer}"</div>
+                        <div className="text-white text-lg">&quot;{ans.answer}&quot;</div>
                         <div className="text-white/50 text-sm">{ans.playerName}</div>
                       </div>
                     </div>
@@ -882,6 +879,28 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                     )}
                   </div>
                 ))}
+
+                {/* เลขที่ยังไม่ได้เปิด */}
+                {playerAnswers
+                  .filter((a) => !a.isRevealed)
+                  .sort((a, b) => a.number - b.number)
+                  .map((ans, i) => (
+                    <div
+                      key={`unrevealed-${i}`}
+                      className="bg-white/5 rounded-xl p-4 flex items-center justify-between border border-white/10"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="text-3xl font-bold text-gray-400 min-w-[60px]">
+                          [{ans.number}]
+                        </div>
+                        <div className="text-left">
+                          <div className="text-gray-400 text-lg">&quot;{ans.answer}&quot;</div>
+                          <div className="text-gray-500 text-sm">{ans.playerName}</div>
+                        </div>
+                      </div>
+                      <div className="text-gray-500 text-sm">ยังไม่เปิด</div>
+                    </div>
+                  ))}
               </div>
             </div>
 
@@ -1037,10 +1056,11 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             </div>
           </div>
 
-          {/* Show all revealed numbers with hints */}
+          {/* Show all numbers (revealed + unrevealed) */}
           <div className="mt-8 max-w-2xl mx-auto">
-            <h4 className="text-xl font-bold text-white mb-4">เลขที่เปิดแล้วทั้งหมด:</h4>
+            <h4 className="text-xl font-bold text-white mb-4">ตัวเลขทั้งหมด:</h4>
             <div className="space-y-3">
+              {/* เลขที่เปิดแล้ว */}
               {playerAnswers
                 .filter((a) => a.isRevealed)
                 .sort((a, b) => a.number - b.number)
@@ -1054,7 +1074,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                         [{ans.number}]
                       </div>
                       <div className="text-left">
-                        <div className="text-white text-lg">"{ans.answer}"</div>
+                        <div className="text-white text-lg">&quot;{ans.answer}&quot;</div>
                         <div className="text-white/50 text-sm">{ans.playerName}</div>
                       </div>
                     </div>
@@ -1064,6 +1084,28 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                     {ans.isCorrect === false && (
                       <div className="text-red-400 text-2xl">✗</div>
                     )}
+                  </div>
+                ))}
+
+              {/* เลขที่ยังไม่ได้เปิด */}
+              {playerAnswers
+                .filter((a) => !a.isRevealed)
+                .sort((a, b) => a.number - b.number)
+                .map((ans, i) => (
+                  <div
+                    key={`unrevealed-${i}`}
+                    className="bg-white/5 rounded-xl p-4 flex items-center justify-between border border-white/10"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl font-bold text-gray-400 min-w-[60px]">
+                        [{ans.number}]
+                      </div>
+                      <div className="text-left">
+                        <div className="text-gray-400 text-lg">&quot;{ans.answer}&quot;</div>
+                        <div className="text-gray-500 text-sm">{ans.playerName}</div>
+                      </div>
+                    </div>
+                    <div className="text-gray-500 text-sm">ไม่ได้เปิด</div>
                   </div>
                 ))}
             </div>
