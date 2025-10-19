@@ -20,6 +20,7 @@ export interface ItoPlayerAnswer {
   answer: string;           // คำใบ้ที่พิมพ์
   submittedAt?: Date;       // เวลาที่ส่งคำตอบ
   isRevealed: boolean;      // เปิดเผยแล้วหรือยัง
+  isCorrect?: boolean;      // โหวตถูกหรือผิด (undefined = ยังไม่ได้โหวต)
   answerIndex: number;      // index ของเลข (0, 1, 2) สำหรับแยกว่าเลขไหน
 }
 

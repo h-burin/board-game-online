@@ -650,13 +650,21 @@ export async function revealAndCheck(
       count: numbersToReveal.length,
     });
 
-    // 8. Mark ทุกเลขที่ต้องเปิดเป็น isRevealed = true
+    // 8. Mark ทุกเลขที่ต้องเปิดเป็น isRevealed = true + เซ็ต isCorrect
     const markRevealedPromises = answersSnap.docs
       .filter((doc) => {
         const data = doc.data() as ItoPlayerAnswer;
         return !data.isRevealed && numbersToReveal.includes(data.number);
       })
-      .map((doc) => updateDoc(doc.ref, { isRevealed: true }));
+      .map((doc) => {
+        const data = doc.data() as ItoPlayerAnswer;
+        // ถูก = เลขที่เลือก (selectedNumber), ผิด = เลขอื่นๆ ที่โดนเปิดด้วย
+        const isThisCorrect = data.number === selectedNumber;
+        return updateDoc(doc.ref, {
+          isRevealed: true,
+          isCorrect: isThisCorrect
+        });
+      });
 
     await Promise.all(markRevealedPromises);
     console.log(`✅ Marked ${markRevealedPromises.length} answers as revealed`);

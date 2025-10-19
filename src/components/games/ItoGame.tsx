@@ -463,12 +463,69 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       {/* Phase: Writing */}
       {gameState.phase === 'writing' && (() => {
         const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
+
+        // คำนวณสถานะการส่งคำใบ้
+        const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
+        const totalPlayers = uniquePlayerIds.length;
+        const expectedAnswersPerPlayer = gameState.currentLevel; // Level 1 = 1 เลข, Level 2 = 2 เลข, etc.
+
+        // สร้าง map: playerId → { playerName, submittedCount, totalExpected }
+        const playerSubmissionStatus: { [key: string]: { playerName: string; submittedCount: number; totalExpected: number } } = {};
+
+        uniquePlayerIds.forEach((id) => {
+          const playerAnswersForThisPlayer = playerAnswers.filter((a) => a.playerId === id);
+          const submittedCount = playerAnswersForThisPlayer.filter((a) => a.submittedAt).length;
+          const playerName = playerAnswersForThisPlayer[0]?.playerName || 'Unknown';
+
+          playerSubmissionStatus[id] = {
+            playerName,
+            submittedCount,
+            totalExpected: expectedAnswersPerPlayer
+          };
+        });
+
+        const playersCompleted = Object.values(playerSubmissionStatus).filter((p) => p.submittedCount === p.totalExpected);
+        const playersNotCompleted = Object.entries(playerSubmissionStatus).filter(([_, p]) => p.submittedCount < p.totalExpected);
+
         return (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
             <h3 className="text-2xl font-bold text-white mb-4">พิมพ์คำใบ้ของคุณ</h3>
             <p className="text-white/70 mb-6">
               ให้คำใบ้ที่สื่อถึงตัวเลขของคุณ โดยไม่ต้องบอกตัวเลข
             </p>
+
+            {/* สถานะการส่งคำใบ้ของผู้เล่น */}
+            <div className="bg-white/5 rounded-2xl p-4 mb-6 border border-white/10">
+              <h4 className="text-white font-bold mb-3 text-center">สถานะการส่งคำใบ้</h4>
+              <div className="text-center text-white/70 mb-3">
+                {playersCompleted.length} / {totalPlayers} คนส่งครบแล้ว
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* ส่งครบแล้ว */}
+                <div>
+                  <div className="text-green-400 text-sm mb-2 text-center">✅ ส่งครบแล้ว</div>
+                  <div className="space-y-1">
+                    {playersCompleted.map((p, i) => (
+                      <div key={i} className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1">
+                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ยังส่งไม่ครบ */}
+                <div>
+                  <div className="text-orange-400 text-sm mb-2 text-center">⏳ ยังส่งไม่ครบ</div>
+                  <div className="space-y-1">
+                    {playersNotCompleted.map(([id, p]) => (
+                      <div key={id} className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1">
+                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* ประวัติเลขที่เปิดแล้ว */}
             {gameState.revealedNumbers.length > 0 && (
@@ -817,7 +874,12 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                         <div className="text-white/50 text-sm">{ans.playerName}</div>
                       </div>
                     </div>
-                    <div className="text-green-400 text-xl">✓</div>
+                    {ans.isCorrect === true && (
+                      <div className="text-green-400 text-xl">✓</div>
+                    )}
+                    {ans.isCorrect === false && (
+                      <div className="text-red-400 text-xl">✗</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -975,19 +1037,47 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             </div>
           </div>
 
-          {/* Show revealed numbers */}
-          <div className="mt-8">
-            <h4 className="text-xl font-bold text-white mb-4">ลำดับตัวเลขที่เปิด:</h4>
-            <div className="flex flex-wrap justify-center gap-3">
-              {gameState.revealedNumbers.map((num, i) => (
-                <div
-                  key={i}
-                  className="bg-white/20 px-6 py-3 rounded-xl text-2xl font-bold text-white"
-                >
-                  {num}
-                </div>
-              ))}
+          {/* Show all revealed numbers with hints */}
+          <div className="mt-8 max-w-2xl mx-auto">
+            <h4 className="text-xl font-bold text-white mb-4">เลขที่เปิดแล้วทั้งหมด:</h4>
+            <div className="space-y-3">
+              {playerAnswers
+                .filter((a) => a.isRevealed)
+                .sort((a, b) => a.number - b.number)
+                .map((ans, i) => (
+                  <div
+                    key={i}
+                    className="bg-white/10 rounded-xl p-4 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-3xl font-bold text-yellow-300 min-w-[60px]">
+                        [{ans.number}]
+                      </div>
+                      <div className="text-left">
+                        <div className="text-white text-lg">"{ans.answer}"</div>
+                        <div className="text-white/50 text-sm">{ans.playerName}</div>
+                      </div>
+                    </div>
+                    {ans.isCorrect === true && (
+                      <div className="text-green-400 text-2xl">✓</div>
+                    )}
+                    {ans.isCorrect === false && (
+                      <div className="text-red-400 text-2xl">✗</div>
+                    )}
+                  </div>
+                ))}
             </div>
+          </div>
+
+          {/* ปุ่มกลับหน้าหลัก */}
+          <div className="mt-8 flex justify-center gap-4">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-lg font-bold px-8 py-4 rounded-xl transition-all transform hover:scale-105"
+            >
+              กลับหน้าหลัก
+            </button>
+          
           </div>
         </div>
       )}
