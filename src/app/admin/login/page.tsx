@@ -20,7 +20,7 @@ export default function AdminLoginPage() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
       console.log('✅ Login successful');
-      router.push('/admin/ito/questions');
+      router.push('/admin');
     } catch (err: any) {
       console.error('❌ Login error:', err);
       setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
