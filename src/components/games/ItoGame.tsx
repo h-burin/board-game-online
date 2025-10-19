@@ -11,7 +11,7 @@ import { db } from '@/lib/firebase/config';
 import { useItoGame } from '@/lib/hooks/useItoGame';
 import { useVotes } from '@/lib/hooks/useVotes';
 import { useReadyStatus } from '@/lib/hooks/useReadyStatus';
-import { submitPlayerAnswer, submitVote, checkAllAnswersSubmitted, startVotingPhase, markPlayerReady, checkAllPlayersReady } from '@/lib/firebase/ito';
+import { submitPlayerAnswer, unsendPlayerAnswer, submitVote, checkAllAnswersSubmitted, startVotingPhase, markPlayerReady, checkAllPlayersReady } from '@/lib/firebase/ito';
 
 interface ItoGameProps {
   sessionId: string;
@@ -154,6 +154,21 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(false);
   };
 
+  // Handle edit answer (unsend to allow re-editing)
+  const handleEditAnswer = async (answerIndex: number) => {
+    if (submitting) return;
+
+    setSubmitting(true);
+    const success = await unsendPlayerAnswer(sessionId, playerId, answerIndex);
+
+    if (success) {
+      console.log('✅ Answer unsent for editing at index', answerIndex);
+    } else {
+      alert('เกิดข้อผิดพลาดในการแก้ไขคำตอบ');
+    }
+    setSubmitting(false);
+  };
+
   // Handle submit vote
   const handleSubmitVote = async () => {
     if (!selectedAnswerId || submitting) return;
@@ -174,22 +189,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(false);
   };
 
-  // Auto-check if all answers submitted (Writing phase)
-  useEffect(() => {
-    if (!gameState || gameState.phase !== 'writing' || revealing) return;
-
-    const checkAnswers = async () => {
-      const allSubmitted = await checkAllAnswersSubmitted(sessionId);
-      if (allSubmitted) {
-        console.log('✅ All answers submitted, moving to voting phase');
-        setRevealing(true);
-        await startVotingPhase(sessionId);
-        setRevealing(false);
-      }
-    };
-
-    checkAnswers();
-  }, [gameState, playerAnswers, sessionId, revealing]);
+  // Auto-check removed - ให้ผู้เล่นเข้า voting phase ตั้งแต่เริ่มเกม
+  // ผู้เล่นสามารถแก้ไขคำตอบได้ตลอดจนกว่าจะถูก reveal
 
   // Reset lastRevealResult เมื่อเข้า voting phase ใหม่
   useEffect(() => {
@@ -418,7 +419,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
               {minutes}:{seconds.toString().padStart(2, '0')}
             </div>
             <div className="text-sm text-white/70 mt-1">
-              {gameState.phase === 'writing' ? 'เวลาพิมพ์คำใบ้' : 'เวลาโหวต'}
+              เวลาเล่น
             </div>
           </div>
         )}
@@ -566,7 +567,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                         disabled={isSubmitted}
                       />
 
-                      {/* ปุ่มส่ง */}
+                      {/* ปุ่มส่ง / แก้ไข */}
                       {!isSubmitted ? (
                         <button
                           onClick={() => handleSubmitAnswer(ans.answerIndex)}
@@ -576,8 +577,17 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                           {submitting ? 'กำลังส่ง...' : 'ส่งคำตอบ'}
                         </button>
                       ) : (
-                        <div className="mt-3 text-center text-green-400 font-bold">
-                          ✓ ส่งคำตอบแล้ว
+                        <div className="mt-3 space-y-2">
+                          <div className="text-center text-green-400 font-bold">
+                            ✓ ส่งคำตอบแล้ว
+                          </div>
+                          <button
+                            onClick={() => handleEditAnswer(ans.answerIndex)}
+                            disabled={submitting}
+                            className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 rounded-xl transition-all"
+                          >
+                            {submitting ? 'กำลังยกเลิก...' : '✏️ แก้ไขคำตอบ'}
+                          </button>
                         </div>
                       )}
                     </div>
@@ -597,21 +607,88 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       {/* Phase: Voting */}
       {gameState.phase === 'voting' && (() => {
-        // คำนวณว่าใครโหวตแล้วบ้าง (ทุกคนต้องโหวต ไม่ว่าคำใบ้ของตัวเองจะถูกเปิดแล้วหรือไม่)
-        // ใช้ Set เพื่อหา unique players (เพราะในรอบ 2-3 มีหลาย answers ต่อคน)
+        const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
         const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
         const totalPlayers = uniquePlayerIds.length;
+        const expectedAnswersPerPlayer = gameState.currentLevel;
+
+        // เช็คว่าทุกคนพิมพ์คำใบ้ครบหรือยัง (ต้องมีคำใบ้ + answer ไม่ว่าง)
+        const playerSubmissionStatus: { [key: string]: { playerName: string; submittedCount: number; totalExpected: number } } = {};
+
+        uniquePlayerIds.forEach((id) => {
+          const playerAnswersForThisPlayer = playerAnswers.filter((a) => a.playerId === id);
+          const submittedCount = playerAnswersForThisPlayer.filter((a) => a.answer.trim() !== '').length;
+          const playerName = playerAnswersForThisPlayer[0]?.playerName || 'Unknown';
+
+          playerSubmissionStatus[id] = {
+            playerName,
+            submittedCount,
+            totalExpected: expectedAnswersPerPlayer
+          };
+        });
+
+        const allPlayersSubmittedAll = Object.values(playerSubmissionStatus).every((p) => p.submittedCount === p.totalExpected);
+        const playersCompleted = Object.values(playerSubmissionStatus).filter((p) => p.submittedCount === p.totalExpected);
+        const playersNotCompleted = Object.entries(playerSubmissionStatus).filter(([, p]) => p.submittedCount < p.totalExpected);
 
         const votedPlayerIds = votes.map((v) => v.playerId);
         const playersWhoVoted = uniquePlayerIds.filter((id) => votedPlayerIds.includes(id));
         const playersWhoNotVoted = uniquePlayerIds.filter((id) => !votedPlayerIds.includes(id));
 
         return (
-          <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-            <h3 className="text-2xl font-bold text-white mb-4">เลือกคำใบ้ที่น้อยที่สุด</h3>
-            <p className="text-white/70 mb-4">
-              คลิกเลือกคำใบ้ที่คุณคิดว่าสื่อถึงตัวเลขที่น้อยที่สุด
-            </p>
+          <div className="space-y-6">
+            {/* ส่วนพิมพ์คำใบ้ของตัวเอง */}
+            {answersWithIndex.filter(ans => !ans.isRevealed).length > 0 && (
+              <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-purple-400/30">
+                <h3 className="text-2xl font-bold text-white mb-4">คำใบ้ของคุณ</h3>
+                <p className="text-white/70 mb-6">
+                  คุณสามารถแก้ไขคำใบ้ได้ตลอดจนกว่าจะถูกเปิด
+                </p>
+
+                <div className="space-y-4">
+                  {answersWithIndex
+                    .filter(ans => !ans.isRevealed)
+                    .sort((a, b) => a.answerIndex - b.answerIndex)
+                    .map((ans) => (
+                      <div key={ans.answerIndex} className="bg-white/10 rounded-2xl p-6 border border-white/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-white/70">
+                            {myAnswers.length > 1 ? `เลขที่ ${ans.answerIndex + 1}:` : 'เลขของคุณ:'}
+                          </div>
+                          <div className="text-3xl font-bold text-yellow-300">{ans.number}</div>
+                        </div>
+
+                        <textarea
+                          className="w-full p-4 rounded-xl bg-white/10 text-white border border-white/20 focus:border-white/50 focus:outline-none resize-none"
+                          rows={2}
+                          placeholder={`พิมพ์คำใบ้สำหรับเลข ${ans.number}...`}
+                          value={answers[ans.answerIndex] || ''}
+                          onChange={(e) => setAnswers({ ...answers, [ans.answerIndex]: e.target.value })}
+                        />
+
+                        <button
+                          onClick={() => handleSubmitAnswer(ans.answerIndex)}
+                          disabled={!answers[ans.answerIndex]?.trim() || submitting}
+                          className={`mt-3 w-full font-bold py-2 rounded-xl transition-all ${
+                            ans.answer
+                              ? 'bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-500 disabled:to-gray-600'
+                              : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600'
+                          } disabled:cursor-not-allowed text-white`}
+                        >
+                          {submitting ? 'กำลังบันทึก...' : ans.answer ? 'อัปเดตคำใบ้' : 'บันทึกคำใบ้'}
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* ส่วนโหวต */}
+            <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
+              <h3 className="text-2xl font-bold text-white mb-4">เลือกคำใบ้ที่น้อยที่สุด</h3>
+              <p className="text-white/70 mb-4">
+                คลิกเลือกคำใบ้ที่คุณคิดว่าสื่อถึงตัวเลขที่น้อยที่สุด
+              </p>
 
             {/* ประวัติเลขที่เปิดแล้ว */}
             {gameState.revealedNumbers.length > 0 && (
@@ -630,80 +707,133 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
               </div>
             )}
 
-            {/* สถานะการโหวต */}
+            {/* สถานะการส่งคำใบ้ */}
             <div className="bg-white/5 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-white font-semibold">
-                  สถานะการโหวต: {voteCount} / {totalPlayers}
-                </div>
+              <h4 className="text-white font-bold mb-3 text-center">สถานะการส่งคำใบ้</h4>
+              <div className="text-center text-white/70 mb-3">
+                {playersCompleted.length} / {totalPlayers} คนส่งครบแล้ว
               </div>
 
+              {!allPlayersSubmittedAll && (
+                <div className="text-center text-orange-300 text-sm mb-3 bg-orange-500/20 rounded-lg py-2">
+                  ⚠️ รอให้ทุกคนพิมพ์คำใบ้ครบก่อนโหวต
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
-                {/* โหวตแล้ว */}
+                {/* ส่งครบแล้ว */}
                 <div>
-                  <div className="text-green-400 text-sm mb-2">✓ โหวตแล้ว ({playersWhoVoted.length})</div>
+                  <div className="text-green-400 text-sm mb-2 text-center">✅ ส่งครบแล้ว</div>
                   <div className="space-y-1">
-                    {playersWhoVoted.map((id) => {
-                      const player = playerAnswers.find((a) => a.playerId === id);
-                      return (
-                        <div key={id} className="text-white/70 text-sm">
-                          • {player?.playerName}
-                        </div>
-                      );
-                    })}
+                    {playersCompleted.map((p, i) => (
+                      <div key={i} className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1">
+                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* ยังไม่โหวต */}
+                {/* ยังส่งไม่ครบ */}
                 <div>
-                  <div className="text-orange-400 text-sm mb-2">⏳ รอโหวต ({playersWhoNotVoted.length})</div>
+                  <div className="text-orange-400 text-sm mb-2 text-center">⏳ ยังส่งไม่ครบ</div>
                   <div className="space-y-1">
-                    {playersWhoNotVoted.map((id) => {
-                      const player = playerAnswers.find((a) => a.playerId === id);
-                      return (
-                        <div key={id} className="text-white/50 text-sm">
-                          • {player?.playerName}
-                        </div>
-                      );
-                    })}
+                    {playersNotCompleted.map(([id, p]) => (
+                      <div key={id} className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1">
+                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {playerAnswers
-              .filter((a) => !a.isRevealed && a.answer.trim() !== '')
-              .map((playerAnswer) => {
-                const answerWithIndex = playerAnswer as ItoPlayerAnswerWithIndex;
-                const answerId = `${answerWithIndex.playerId}_${answerWithIndex.answerIndex}`;
-                return (
-                  <button
-                    key={answerId}
-                    onClick={() => setSelectedAnswerId(answerId)}
-                  className={`p-6 rounded-2xl border-2 transition-all cursor-pointer ${
-                    selectedAnswerId === answerId
-                      ? 'border-yellow-400 bg-yellow-500/30'
-                      : 'border-white/20 bg-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="text-white/70 text-sm mb-2">{playerAnswer.playerName}</div>
-                  <div className="text-white text-lg font-semibold">{playerAnswer.answer}</div>
-                  {playerAnswer.playerId === playerId && (
-                    <div className="text-blue-300 text-sm mt-2">(คำใบ้ของคุณ)</div>
-                  )}
-                </button>
-                );
-              })}
-          </div>
+            {/* สถานะการโหวต (แสดงถ้าทุกคนส่งครบแล้ว) */}
+            {allPlayersSubmittedAll && (
+              <div className="bg-white/5 rounded-xl p-4 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-white font-semibold">
+                    สถานะการโหวต: {voteCount} / {totalPlayers}
+                  </div>
+                </div>
 
-            <button
-              onClick={handleSubmitVote}
-              disabled={!selectedAnswerId || submitting}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
-            >
-              {submitting ? 'กำลังส่ง...' : 'ยืนยันการเลือก'}
-            </button>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* โหวตแล้ว */}
+                  <div>
+                    <div className="text-green-400 text-sm mb-2">✓ โหวตแล้ว ({playersWhoVoted.length})</div>
+                    <div className="space-y-1">
+                      {playersWhoVoted.map((id) => {
+                        const player = playerAnswers.find((a) => a.playerId === id);
+                        return (
+                          <div key={id} className="text-white/70 text-sm">
+                            • {player?.playerName}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* ยังไม่โหวต */}
+                  <div>
+                    <div className="text-orange-400 text-sm mb-2">⏳ รอโหวต ({playersWhoNotVoted.length})</div>
+                    <div className="space-y-1">
+                      {playersWhoNotVoted.map((id) => {
+                        const player = playerAnswers.find((a) => a.playerId === id);
+                        return (
+                          <div key={id} className="text-white/50 text-sm">
+                            • {player?.playerName}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ส่วนโหวต - แสดงเฉพาะเมื่อทุกคนส่งครบแล้ว */}
+            {allPlayersSubmittedAll ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {playerAnswers
+                    .filter((a) => !a.isRevealed && a.answer.trim() !== '')
+                    .map((playerAnswer) => {
+                      const answerWithIndex = playerAnswer as ItoPlayerAnswerWithIndex;
+                      const answerId = `${answerWithIndex.playerId}_${answerWithIndex.answerIndex}`;
+                      return (
+                        <button
+                          key={answerId}
+                          onClick={() => setSelectedAnswerId(answerId)}
+                          className={`p-6 rounded-2xl border-2 transition-all cursor-pointer ${
+                            selectedAnswerId === answerId
+                              ? 'border-yellow-400 bg-yellow-500/30'
+                              : 'border-white/20 bg-white/5 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-white/70 text-sm mb-2">{playerAnswer.playerName}</div>
+                          <div className="text-white text-lg font-semibold">{playerAnswer.answer}</div>
+                          {playerAnswer.playerId === playerId && (
+                            <div className="text-blue-300 text-sm mt-2">(คำใบ้ของคุณ)</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                </div>
+
+                <button
+                  onClick={handleSubmitVote}
+                  disabled={!selectedAnswerId || submitting}
+                  className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
+                >
+                  {submitting ? 'กำลังส่ง...' : 'ยืนยันการเลือก'}
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-8 bg-gray-500/20 rounded-2xl">
+                <div className="text-white/70 text-lg mb-2">⏳ รอให้ทุกคนพิมพ์คำใบ้ครบก่อน</div>
+                <div className="text-white/50 text-sm">จึงจะสามารถโหวตได้</div>
+              </div>
+            )}
+          </div>
           </div>
         );
       })()}
@@ -1119,7 +1249,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             >
               กลับหน้าหลัก
             </button>
-          
           </div>
         </div>
       )}

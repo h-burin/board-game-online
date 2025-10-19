@@ -105,7 +105,7 @@ export async function startNextLevel(
       totalRounds: totalNumbers,
       questionId: question.id,
       questionText: question.questionsTH,
-      phase: 'writing',
+      phase: 'voting', // เริ่ม Level ใหม่ที่ voting phase เลย
       phaseEndTime: Timestamp.fromDate(phaseEndTime),
       revealedNumbers: [],
       updatedAt: serverTimestamp(),
@@ -224,7 +224,7 @@ export async function initializeItoGame(
 
       questionId: question.id,
       questionText: question.questionsTH,
-      phase: 'writing',
+      phase: 'voting', // เริ่มที่ voting phase เลย - ผู้เล่นสามารถพิมพ์คำใบ้และโหวตไปพร้อมกัน
       phaseEndTime: phaseEndTime,
       revealedNumbers: [],
       status: 'playing',
@@ -307,6 +307,34 @@ export async function submitPlayerAnswer(
     return true;
   } catch (error) {
     console.error('❌ Error submitting answer:', error);
+    return false;
+  }
+}
+
+/**
+ * ยกเลิกการส่งคำตอบ (เพื่อแก้ไข)
+ */
+export async function unsendPlayerAnswer(
+  sessionId: string,
+  playerId: string,
+  answerIndex: number
+): Promise<boolean> {
+  try {
+    const docId = `${playerId}_${answerIndex}`;
+    const answerRef = doc(db, `game_sessions/${sessionId}/player_answers`, docId);
+
+    await updateDoc(answerRef, {
+      submittedAt: null,
+    });
+
+    console.log('✅ Player answer unsent (ready for edit):', {
+      sessionId,
+      playerId,
+      answerIndex,
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Error unsending answer:', error);
     return false;
   }
 }
