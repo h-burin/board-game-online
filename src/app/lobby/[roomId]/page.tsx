@@ -114,7 +114,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
 
   // Get selected game details
   const selectedGame = games.find(g => g.id === room?.gameId);
-  const minPlayers = selectedGame?.MinPlayer || 2;
+  const minPlayers = selectedGame?.minPlayer || 2;
 
   // Check if all players are ready (except host)
   const allPlayersReady = players.every(player =>

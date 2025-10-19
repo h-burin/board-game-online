@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
 
                 {/* Player Range */}
                 <div className="text-white/50 text-sm mb-4">
-                  ผู้เล่น: {game.MinPlayer}-{game.MaxPlayer} คน
+                  ผู้เล่น: {game.minPlayer}-{game.maxPlayer} คน
                 </div>
 
                 {/* Action Button */}

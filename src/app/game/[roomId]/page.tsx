@@ -173,7 +173,7 @@ export default function GamePage({ params }: GamePageProps) {
             จำนวนผู้เล่น: <span className="font-bold text-white">{players.length}</span> คน
             {selectedGame && (
               <span className="ml-4">
-                ({selectedGame.MinPlayer}-{selectedGame.MaxPlayer} คน)
+                ({selectedGame.minPlayer}-{selectedGame.maxPlayer} คน)
               </span>
             )}
           </div>

@@ -73,7 +73,7 @@ export async function POST(
       );
     }
 
-    // Get game details to check MinPlayer
+    // Get game details to check minPlayer
     const gameRef = doc(db, 'games', roomData.gameId);
     const gameSnap = await getDoc(gameRef);
 
@@ -85,7 +85,7 @@ export async function POST(
     }
 
     const gameInfo = gameSnap.data();
-    const minPlayers = gameInfo.MinPlayer || 2;
+    const minPlayers = gameInfo.minPlayer || 2;
 
     // Validation - Check minimum players
     if (roomData.currentPlayers < minPlayers) {

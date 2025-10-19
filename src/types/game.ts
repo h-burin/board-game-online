@@ -6,8 +6,8 @@
 export interface Game {
   id: string;
   name: string;
-  MinPlayer: number;
-  MaxPlayer: number;
+  minPlayer: number;
+  maxPlayer: number;
   description?: string;
   imageUrl?: string;
   createdAt?: Date;

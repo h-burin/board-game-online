@@ -42,8 +42,8 @@ export function useGames(): UseGamesResult {
           const game: Game = {
             id: doc.id,
             name: data.name || 'ไม่มีชื่อเกม',
-            MinPlayer: data.MinPlayer || 2,
-            MaxPlayer: data.MaxPlayer || 8,
+            minPlayer: data.minPlayer || 2,
+            maxPlayer: data.maxPlayer || 8,
             description: data.description,
             imageUrl: data.imageUrl,
             createdAt: data.createdAt?.toDate(),

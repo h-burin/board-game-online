@@ -38,10 +38,12 @@ export default function CreateRoomPage() {
   // Update maxPlayers when game changes
   useEffect(() => {
     if (selectedGame) {
-      // Set maxPlayers to MinPlayer by default when game is selected
+      console.log('Selected game:', selectedGame);
+      console.log('minPlayer:', selectedGame.minPlayer, 'maxPlayer:', selectedGame.maxPlayer);
+      // Set maxPlayers to minPlayer by default when game is selected
       setFormData((prev) => ({
         ...prev,
-        maxPlayers: selectedGame.MinPlayer,
+        maxPlayers: selectedGame.minPlayer,
       }));
     }
   }, [selectedGame]);
@@ -242,7 +244,7 @@ export default function CreateRoomPage() {
                   </option>
                   {games.map((game) => (
                     <option key={game.id} value={game.id} className="bg-gray-900">
-                      {game.name} ({game.MinPlayer}-{game.MaxPlayer} คน)
+                      {game.name} ({game.minPlayer}-{game.maxPlayer} คน)
                     </option>
                   ))}
                 </select>
@@ -265,10 +267,10 @@ export default function CreateRoomPage() {
                 className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white focus:outline-none focus:border-green-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {selectedGame ? (
-                  // Generate options based on selected game's MinPlayer - MaxPlayer
+                  // Generate options based on selected game's minPlayer - maxPlayer
                   Array.from(
-                    { length: selectedGame.MaxPlayer - selectedGame.MinPlayer + 1 },
-                    (_, i) => selectedGame.MinPlayer + i
+                    { length: selectedGame.maxPlayer - selectedGame.minPlayer + 1 },
+                    (_, i) => selectedGame.minPlayer + i
                   ).map((num) => (
                     <option key={num} value={num} className="bg-gray-900">
                       {num} คน
@@ -282,8 +284,8 @@ export default function CreateRoomPage() {
               </select>
               {selectedGame && (
                 <p className="text-green-200 text-sm mt-2">
-                  เกมนี้รองรับ {selectedGame.MinPlayer}-{selectedGame.MaxPlayer} คน
-                  {selectedGame.MaxPlayer > 20 && (
+                  เกมนี้รองรับ {selectedGame.minPlayer}-{selectedGame.maxPlayer} คน
+                  {selectedGame.maxPlayer > 20 && (
                     <span className="text-yellow-300 ml-2">(⚠️ จำนวนผู้เล่นสูงมาก โปรดตรวจสอบข้อมูลเกม)</span>
                   )}
                 </p>

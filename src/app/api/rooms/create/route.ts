@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
     }
 
     const gameData = gameSnap.data();
-    const minPlayers = gameData.MinPlayer || 2;
-    const maxPlayersAllowed = gameData.MaxPlayer || 8;
+    const minPlayers = gameData.minPlayer || 2;
+    const maxPlayersAllowed = gameData.maxPlayer || 8;
 
     // Validation - Max Players
     if (!maxPlayers || typeof maxPlayers !== 'number') {
