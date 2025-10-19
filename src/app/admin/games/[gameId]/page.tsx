@@ -11,8 +11,8 @@ interface Game {
   name: string;
   description?: string;
   imageUrl?: string;
-  MinPlayer: number;
-  MaxPlayer: number;
+  minPlayer: number;
+  maxPlayer: number;
 }
 
 export default function GameManagementPage() {
@@ -23,8 +23,8 @@ export default function GameManagementPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [game, setGame] = useState<Game | null>(null);
-  const [minPlayer, setMinPlayer] = useState<number>(0);
-  const [maxPlayer, setMaxPlayer] = useState<number>(0);
+  const [minPlayer, setMinPlayer] = useState<number>(1);
+  const [maxPlayer, setMaxPlayer] = useState<number>(1);
   const [saving, setSaving] = useState(false);
 
   // Check authentication
@@ -51,8 +51,8 @@ export default function GameManagementPage() {
         if (gameDoc.exists()) {
           const gameData = { id: gameDoc.id, ...gameDoc.data() } as Game;
           setGame(gameData);
-          setMinPlayer(gameData.MinPlayer);
-          setMaxPlayer(gameData.MaxPlayer);
+          setMinPlayer(gameData.minPlayer ?? 1);
+          setMaxPlayer(gameData.maxPlayer ?? 1);
         } else {
           alert('ไม่พบข้อมูลเกม');
           router.push('/admin');
@@ -84,8 +84,8 @@ export default function GameManagementPage() {
     setSaving(true);
     try {
       await updateDoc(doc(db, 'games', gameId), {
-        MinPlayer: minPlayer,
-        MaxPlayer: maxPlayer,
+        minPlayer: minPlayer,
+        maxPlayer: maxPlayer,
       });
       alert('บันทึกสำเร็จ');
     } catch (error) {
@@ -151,8 +151,8 @@ export default function GameManagementPage() {
               <input
                 type="number"
                 min="1"
-                value={minPlayer}
-                onChange={(e) => setMinPlayer(Number(e.target.value))}
+                value={minPlayer || ''}
+                onChange={(e) => setMinPlayer(Number(e.target.value) || 1)}
                 className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -163,8 +163,8 @@ export default function GameManagementPage() {
               <input
                 type="number"
                 min="1"
-                value={maxPlayer}
-                onChange={(e) => setMaxPlayer(Number(e.target.value))}
+                value={maxPlayer || ''}
+                onChange={(e) => setMaxPlayer(Number(e.target.value) || 1)}
                 className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>

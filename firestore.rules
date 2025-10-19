@@ -82,7 +82,7 @@ service cloud.firestore {
     // =========================================
     match /games/{gameId} {
       allow read: if true;
-      allow write: if false; // เขียนได้เฉพาะ Admin
+      allow write: if request.auth != null; // เขียนได้เฉพาะ user ที่ login แล้ว (Admin)
     }
 
     // =========================================
