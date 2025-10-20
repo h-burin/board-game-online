@@ -477,7 +477,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         {/* Timer */}
         {gameState.phase !== "finished" && gameState.phaseEndTime && (
           <div className="mb-6 text-center">
-            <div className="text-4xl font-bold text-yellow-300">
+            <div className="text-6xl font-bold text-yellow-300">
               {minutes}:{seconds.toString().padStart(2, "0")}
             </div>
             <div className="text-sm text-white/70 mt-1">เวลาเล่น</div>
