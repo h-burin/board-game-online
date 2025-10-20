@@ -1046,6 +1046,24 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                           const answerWithIndex =
                             playerAnswer as ItoPlayerAnswerWithIndex;
                           const answerId = `${answerWithIndex.playerId}_${answerWithIndex.answerIndex}`;
+
+                          // หาว่าใครโหวตคำใบ้นี้บ้าง
+                          const votersForThisAnswer = votes.filter(
+                            (v) =>
+                              v.votedForPlayerId === answerWithIndex.playerId &&
+                              v.votedForAnswerIndex === answerWithIndex.answerIndex
+                          );
+
+                          // ดึงชื่อผู้โหวต
+                          const voterNames = votersForThisAnswer
+                            .map((v) => {
+                              const voter = playerAnswers.find(
+                                (a) => a.playerId === v.playerId
+                              );
+                              return voter?.playerName || "Unknown";
+                            })
+                            .filter((name, index, self) => self.indexOf(name) === index); // unique
+
                           return (
                             <button
                               key={answerId}
@@ -1059,12 +1077,41 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                               <div className="text-white/70 text-sm mb-2">
                                 {playerAnswer.playerName}
                               </div>
-                              <div className="text-white text-lg font-semibold">
+                              <div className="text-white text-2xl font-semibold">
                                 {playerAnswer.answer}
                               </div>
                               {playerAnswer.playerId === playerId && (
                                 <div className="text-blue-300 text-sm mt-2">
                                   (คำใบ้ของคุณ)
+                                </div>
+                              )}
+
+                              {/* แสดงว่าใครโหวตคำใบ้นี้ */}
+                              {voterNames.length > 0 && (
+                                <div className="mt-3 pt-3 from-green-500/20 to-blue-500/20">
+                                  <div className="flex items-center gap-2 mb-2 justify-center">
+                                    <div className="flex items-center  justify-center w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full">
+                                      <span className="text-white text-xs font-bold">
+                                        {voterNames.length}
+                                      </span>
+                                    </div>
+                                    <span className="text-green-400 text-sm font-semibold">
+                                      โหวต
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 justify-center">
+                                    {voterNames.map((name, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="group relative px-3 py-1.5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/40 hover:to-emerald-500/40 border border-green-400/30 rounded-lg transition-all duration-200 hover:scale-105"
+                                      >
+                                        <span className="text-green-200 text-sm font-medium">
+                                          {name}
+                                        </span>
+                                        <div className="absolute inset-0 bg-gradient-to-r from-green-400/0 via-green-400/10 to-green-400/0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </button>

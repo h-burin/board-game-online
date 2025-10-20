@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase/config';
 interface Vote {
   playerId: string;
   votedForPlayerId: string;
+  votedForAnswerIndex: number;
 }
 
 interface UseVotesResult {
@@ -40,6 +41,7 @@ export function useVotes(sessionId: string): UseVotesResult {
           votesData.push({
             playerId: data.playerId,
             votedForPlayerId: data.votedForPlayerId,
+            votedForAnswerIndex: data.votedForAnswerIndex || 0,
           });
         });
 
