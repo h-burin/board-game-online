@@ -22,7 +22,9 @@
       "Bash(npx firebase-tools login)",
       "Bash(npx eslint src/components/games/ItoGame.tsx --format=compact)",
       "Bash(npx eslint src/components/games/ItoGame.tsx)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(test -f /Users/burinsamphanwetsopha/Developer/board-game/README.md)",
+      "Bash(ls -lh /Users/burinsamphanwetsopha/Developer/board-game/{README.md,CHANGES.md})"
     ],
     "deny": [],
     "ask": []

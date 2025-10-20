@@ -209,7 +209,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
     if (success) {
       console.log("✅ Vote submitted successfully for:", selectedAnswerId);
-      setSelectedAnswerId(null);
+      // ไม่ต้อง reset selectedAnswerId เพื่อให้ผู้เล่นเห็นว่า vote อะไรไว้
+      // และเมื่อ refresh ก็จะ restore กลับมาได้
     } else {
       alert("เกิดข้อผิดพลาดในการโหวต");
     }
@@ -225,6 +226,38 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       setLastRevealResult(null);
     }
   }, [gameState?.phase]);
+
+  // Restore vote selection if player already voted (ป้องกันการหาย vote เมื่อ refresh)
+  useEffect(() => {
+    console.log("🔍 Vote restore check:", {
+      phase: gameState?.phase,
+      votesLength: votes?.length,
+      playerId,
+      currentSelectedAnswerId: selectedAnswerId,
+    });
+
+    if (!gameState || gameState.phase !== "voting") {
+      console.log("❌ Not in voting phase");
+      return;
+    }
+    if (!votes || votes.length === 0) {
+      console.log("❌ No votes data");
+      return;
+    }
+
+    // หา vote ของผู้เล่นคนนี้
+    const myVote = votes.find((v) => v.playerId === playerId);
+    console.log("🎯 My vote:", myVote);
+
+    if (myVote && !selectedAnswerId) {
+      // Restore selectedAnswerId จาก vote ที่บันทึกไว้
+      const restoredAnswerId = `${myVote.votedForPlayerId}_${myVote.votedForAnswerIndex}`;
+      console.log("🔄 Restoring vote:", restoredAnswerId);
+      setSelectedAnswerId(restoredAnswerId);
+    } else if (myVote && selectedAnswerId) {
+      console.log("✅ Vote already set:", selectedAnswerId);
+    }
+  }, [votes, gameState, playerId, selectedAnswerId]);
 
   // Auto-check if all votes submitted (Voting phase)
   useEffect(() => {

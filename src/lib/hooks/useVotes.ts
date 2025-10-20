@@ -6,21 +6,16 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-
-interface Vote {
-  playerId: string;
-  votedForPlayerId: string;
-  votedForAnswerIndex: number;
-}
+import type { ItoVote } from '@/types/ito';
 
 interface UseVotesResult {
-  votes: Vote[];
+  votes: ItoVote[];
   voteCount: number;
   loading: boolean;
 }
 
 export function useVotes(sessionId: string): UseVotesResult {
-  const [votes, setVotes] = useState<Vote[]>([]);
+  const [votes, setVotes] = useState<ItoVote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,7 +29,7 @@ export function useVotes(sessionId: string): UseVotesResult {
     const unsubscribe = onSnapshot(
       votesRef,
       (snapshot) => {
-        const votesData: Vote[] = [];
+        const votesData: ItoVote[] = [];
 
         snapshot.forEach((doc) => {
           const data = doc.data();
@@ -42,6 +37,7 @@ export function useVotes(sessionId: string): UseVotesResult {
             playerId: data.playerId,
             votedForPlayerId: data.votedForPlayerId,
             votedForAnswerIndex: data.votedForAnswerIndex || 0,
+            votedAt: data.votedAt?.toDate() || new Date(),
           });
         });
 
