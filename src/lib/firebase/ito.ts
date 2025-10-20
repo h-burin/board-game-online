@@ -17,6 +17,8 @@ import {
   serverTimestamp,
   Timestamp,
   DocumentReference,
+  runTransaction,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ItoGameState, ItoPlayerAnswer, ItoQuestion, ItoReadyStatus } from '@/types/ito';
@@ -56,6 +58,12 @@ export async function getRandomQuestion(): Promise<ItoQuestion | null> {
  */
 export function generateUniqueNumbers(playerCount: number, numbersPerPlayer: number = 1): number[] {
   const totalNumbers = playerCount * numbersPerPlayer;
+
+  // ตรวจสอบว่าเกินขอบเขตหรือไม่
+  if (totalNumbers > 100) {
+    throw new Error(`ต้องการ ${totalNumbers} เลข แต่มีแค่ 1-100 (100 เลข)`);
+  }
+
   const numbers = new Set<number>();
 
   while (numbers.size < totalNumbers) {
@@ -63,7 +71,18 @@ export function generateUniqueNumbers(playerCount: number, numbersPerPlayer: num
     numbers.add(randomNum);
   }
 
-  return Array.from(numbers);
+  const result = Array.from(numbers);
+
+  // Debug: แสดงเลขที่สุ่มได้
+  console.log('🎲 Generated unique numbers:', {
+    playerCount,
+    numbersPerPlayer,
+    totalNumbers,
+    numbers: result.sort((a, b) => a - b),
+    hasDuplicates: result.length !== new Set(result).size,
+  });
+
+  return result;
 }
 
 /**
@@ -76,7 +95,7 @@ export async function startNextLevel(
   currentLevel: number,
   currentHearts: number
 ): Promise<boolean> {
-  console.log('🚀🚀🚀 [startNextLevel] CALLED with:', {
+  console.log('🚀 [startNextLevel] CALLED with:', {
     sessionId,
     playerIds,
     currentLevel,
@@ -84,7 +103,7 @@ export async function startNextLevel(
   });
 
   try {
-    // 1. สุ่มโจทย์ใหม่
+    // 1. สุ่มโจทย์ใหม่ (นอก transaction)
     const question = await getRandomQuestion();
     if (!question) {
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
@@ -94,88 +113,94 @@ export async function startNextLevel(
     const numbersPerPlayer = currentLevel;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
     const totalNumbers = playerIds.length * numbersPerPlayer;
-
-    // 3. อัปเดต Game State
     const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
-    const sessionRef = doc(db, 'game_sessions', sessionId);
 
-    await updateDoc(sessionRef, {
+    // 3. ใช้ Batch Write เพื่อป้องกัน race condition
+    const batch = writeBatch(db);
+    const sessionRef = doc(db, 'game_sessions', sessionId);
+    const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+
+    // ลบ player_answers เก่าทั้งหมด
+    const oldAnswersSnap = await getDocs(playerAnswersRef);
+    oldAnswersSnap.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    console.log(`🗑️ Deleting ${oldAnswersSnap.docs.length} old player_answers`);
+
+    // ลบ votes เก่า
+    const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
+    const votesSnap = await getDocs(votesRef);
+    votesSnap.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    // ลบ ready_status เก่า
+    const readyRef = collection(db, `game_sessions/${sessionId}/ready_status`);
+    const readySnap = await getDocs(readyRef);
+    readySnap.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+
+    // อัปเดต Game State
+    batch.update(sessionRef, {
       currentLevel: currentLevel,
-      hearts: currentHearts, // คงหัวใจเดิม
+      hearts: currentHearts,
       currentRound: 1,
       totalRounds: totalNumbers,
       questionId: question.id,
       questionText: question.questionsTH,
-      phase: 'voting', // เริ่ม Level ใหม่ที่ voting phase เลย
+      phase: 'voting',
       phaseEndTime: Timestamp.fromDate(phaseEndTime),
       revealedNumbers: [],
       updatedAt: serverTimestamp(),
     });
 
-    // 4. ลบ player_answers เก่าออก
-    const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
-    const oldAnswersSnap = await getDocs(playerAnswersRef);
-    const deletePromises = oldAnswersSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
-    await Promise.all(deletePromises);
-
-    // 5. สร้าง Player Answers ใหม่
+    // สร้าง Player Answers ใหม่
     const playerAnswers: ItoPlayerAnswer[] = [];
     let numberIndex = 0;
 
     for (const playerId of playerIds) {
       for (let answerIdx = 0; answerIdx < numbersPerPlayer; answerIdx++) {
-        playerAnswers.push({
+        const playerAnswer: ItoPlayerAnswer = {
           playerId: playerId,
           playerName: playerNames[playerId] || 'Unknown',
           number: numbers[numberIndex],
           answer: '',
           isRevealed: false,
-          answerIndex: answerIdx, // 0, 1, 2
+          answerIndex: answerIdx,
+        };
+        playerAnswers.push(playerAnswer);
+
+        const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
+        const docRef = doc(playerAnswersRef, docId);
+        batch.set(docRef, {
+          ...playerAnswer,
+          submittedAt: null,
         });
+
+        console.log(`  📝 Preparing: ${docId} → number: ${playerAnswer.number}`);
         numberIndex++;
       }
     }
 
-    // 6. บันทึก Player Answers ใหม่แบบ Batch (ป้องกัน race condition)
-    console.log(`📝 Creating ${playerAnswers.length} player_answers documents...`);
+    // Commit batch (atomic operation)
+    await batch.commit();
+    console.log(`✅ Batch committed: ${playerAnswers.length} player_answers created`);
 
-    const batch = [];
-    for (const playerAnswer of playerAnswers) {
-      const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
-      console.log(`  - Preparing: ${docId} (number: ${playerAnswer.number})`);
-
-      const docRef = doc(playerAnswersRef, docId);
-      batch.push(
-        setDoc(docRef, {
-          ...playerAnswer,
-          submittedAt: null,
-        })
-      );
+    // Validation: ตรวจสอบว่าเลขซ้ำหรือไม่
+    const validation = await validateUniqueNumbers(sessionId);
+    if (!validation.isValid) {
+      console.error('❌❌❌ CRITICAL: Duplicate numbers in startNextLevel!', validation);
+      await cleanupPlayerAnswers(sessionId);
+      throw new Error('Duplicate numbers detected - cleaned up and aborting');
     }
 
-    // Execute all setDoc operations in parallel
-    await Promise.all(batch);
-    console.log(`✅ All ${batch.length} documents created successfully`);
-
-    // 7. ลบ votes เก่าออก
-    const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
-    const votesSnap = await getDocs(votesRef);
-    const deleteVotesPromises = votesSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
-    await Promise.all(deleteVotesPromises);
-
-    // 8. ลบ ready_status เก่าออก
-    await clearReadyStatus(sessionId);
-
-    // 8. ตรวจสอบว่าสร้างครบจริงหรือไม่
-    const verifySnap = await getDocs(playerAnswersRef);
-    console.log(`✅ Started Level ${currentLevel}:`, {
+    console.log(`✅ Started Level ${currentLevel} successfully:`, {
       sessionId,
       question: question.questionsTH,
       numbersPerPlayer,
       totalNumbers,
-      expectedDocs: playerAnswers.length,
-      actualDocs: verifySnap.docs.length,
-      docIds: verifySnap.docs.map(d => d.id),
+      validation,
     });
 
     return true;
@@ -196,7 +221,14 @@ export async function initializeItoGame(
   playerNames: { [playerId: string]: string }
 ): Promise<{ gameState: ItoGameState; playerAnswers: ItoPlayerAnswer[] } | null> {
   try {
-    // 1. สุ่มเลือกโจทย์
+    console.log('🎮 [initializeItoGame] Starting initialization:', {
+      sessionId,
+      roomId,
+      playerCount: playerIds.length,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 1. สุ่มเลือกโจทย์ (ทำนอก transaction)
     const question = await getRandomQuestion();
     if (!question) {
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
@@ -205,79 +237,173 @@ export async function initializeItoGame(
     // 2. สุ่มเลขให้ผู้เล่น (Level 1 = คนละ 1 เลข)
     const numbersPerPlayer = 1;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
-
-    // 3. สร้าง Game State
     const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
     const totalNumbers = playerIds.length * numbersPerPlayer;
 
-    const gameState: ItoGameState = {
-      id: sessionId,
-      roomId: roomId,
-      gameId: 'BWLxJkh45e6RiALRBmcl',
+    // 3. ใช้ Transaction เพื่อป้องกัน race condition
+    const result = await runTransaction(db, async (transaction) => {
+      const sessionRef = doc(db, 'game_sessions', sessionId);
+      const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
 
-      // Level system
-      currentLevel: 1,
-      totalLevels: 3,
+      // อ่านเพื่อเช็คว่ามี player_answers อยู่แล้วหรือไม่
+      const existingAnswersSnapshot = await getDocs(playerAnswersRef);
 
-      hearts: 3,
-      currentRound: 1,
-      totalRounds: totalNumbers,
-
-      questionId: question.id,
-      questionText: question.questionsTH,
-      phase: 'voting', // เริ่มที่ voting phase เลย - ผู้เล่นสามารถพิมพ์คำใบ้และโหวตไปพร้อมกัน
-      phaseEndTime: phaseEndTime,
-      revealedNumbers: [],
-      status: 'playing',
-      startedAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // 4. สร้าง Player Answers (แต่ละเลขเป็น document แยก)
-    const playerAnswers: ItoPlayerAnswer[] = [];
-    let numberIndex = 0;
-
-    for (const playerId of playerIds) {
-      for (let answerIdx = 0; answerIdx < numbersPerPlayer; answerIdx++) {
-        playerAnswers.push({
-          playerId: playerId,
-          playerName: playerNames[playerId] || 'Unknown',
-          number: numbers[numberIndex],
-          answer: '',
-          isRevealed: false,
-          answerIndex: answerIdx,
+      if (!existingAnswersSnapshot.empty) {
+        console.warn('⚠️ [initializeItoGame] Player answers already exist, aborting transaction:', {
+          sessionId,
+          existingCount: existingAnswersSnapshot.docs.length,
         });
-        numberIndex++;
+        return null; // Abort - มี player answers อยู่แล้ว
       }
-    }
 
-    // 5. บันทึกลง Firestore
-    const sessionRef = doc(db, 'game_sessions', sessionId);
-    await updateDoc(sessionRef, {
-      ...gameState,
-      startedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      phaseEndTime: Timestamp.fromDate(phaseEndTime),
+      // สร้าง Game State
+      const gameState: ItoGameState = {
+        id: sessionId,
+        roomId: roomId,
+        gameId: 'BWLxJkh45e6RiALRBmcl',
+        currentLevel: 1,
+        totalLevels: 3,
+        hearts: 3,
+        currentRound: 1,
+        totalRounds: totalNumbers,
+        questionId: question.id,
+        questionText: question.questionsTH,
+        phase: 'voting',
+        phaseEndTime: phaseEndTime,
+        revealedNumbers: [],
+        status: 'playing',
+        startedAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // สร้าง Player Answers
+      const playerAnswers: ItoPlayerAnswer[] = [];
+      let numberIndex = 0;
+
+      for (const playerId of playerIds) {
+        for (let answerIdx = 0; answerIdx < numbersPerPlayer; answerIdx++) {
+          playerAnswers.push({
+            playerId: playerId,
+            playerName: playerNames[playerId] || 'Unknown',
+            number: numbers[numberIndex],
+            answer: '',
+            isRevealed: false,
+            answerIndex: answerIdx,
+          });
+          numberIndex++;
+        }
+      }
+
+      // อัปเดต game state
+      transaction.update(sessionRef, {
+        ...gameState,
+        startedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        phaseEndTime: Timestamp.fromDate(phaseEndTime),
+      });
+
+      // สร้าง player answers ทั้งหมด
+      console.log('📝 [initializeItoGame] Creating player answers in transaction:', {
+        totalAnswers: playerAnswers.length,
+        numbers,
+      });
+
+      for (const playerAnswer of playerAnswers) {
+        const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
+        const answerDocRef = doc(playerAnswersRef, docId);
+        transaction.set(answerDocRef, {
+          ...playerAnswer,
+          submittedAt: null,
+        });
+        console.log(`  ✅ Preparing: ${docId} → number: ${playerAnswer.number}`);
+      }
+
+      return { gameState, playerAnswers };
     });
 
-    // 6. บันทึก Player Answers ลง subcollection
-    // ใช้ playerId_answerIndex เป็น document ID
-    const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
-    for (const playerAnswer of playerAnswers) {
-      const docId = `${playerAnswer.playerId}_${playerAnswer.answerIndex}`;
-      await setDoc(doc(playerAnswersRef, docId), {
-        ...playerAnswer,
-        submittedAt: null,
-      });
+    if (!result) {
+      console.warn('⚠️ [initializeItoGame] Transaction aborted - game already initialized');
+      return null;
     }
 
-    console.log('✅ ITO Game initialized:', { sessionId, question: question.questionsTH });
+    console.log('✅ ITO Game initialized successfully:', {
+      sessionId,
+      question: question.questionsTH,
+      playerCount: playerIds.length,
+    });
 
-    return { gameState, playerAnswers };
+    // Validation: ตรวจสอบว่าเลขซ้ำหรือไม่หลังบันทึกเสร็จ
+    const validation = await validateUniqueNumbers(sessionId);
+    if (!validation.isValid) {
+      console.error('❌❌❌ CRITICAL: Duplicate numbers detected after initialization!', validation);
+      // ลบข้อมูลที่สร้างแล้วเริ่มใหม่
+      await cleanupPlayerAnswers(sessionId);
+      throw new Error('Duplicate numbers detected - cleaned up and aborting');
+    }
+
+    console.log('✅ Validation passed: All numbers are unique', validation);
+
+    return result;
   } catch (error) {
     console.error('❌ Error initializing ITO game:', error);
     return null;
   }
+}
+
+/**
+ * Validation: ตรวจสอบว่ามีเลขซ้ำใน player_answers หรือไม่
+ */
+async function validateUniqueNumbers(sessionId: string): Promise<{
+  isValid: boolean;
+  totalAnswers: number;
+  uniqueNumbers: number;
+  duplicates: number[];
+  details: Array<{ docId: string; playerId: string; number: number }>;
+}> {
+  const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+  const snapshot = await getDocs(playerAnswersRef);
+
+  const numberCounts: { [num: number]: number } = {};
+  const details: Array<{ docId: string; playerId: string; number: number }> = [];
+
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    const num = data.number;
+    numberCounts[num] = (numberCounts[num] || 0) + 1;
+    details.push({
+      docId: doc.id,
+      playerId: data.playerId,
+      number: num,
+    });
+  });
+
+  const duplicates = Object.entries(numberCounts)
+    .filter(([_, count]) => count > 1)
+    .map(([num, _]) => parseInt(num));
+
+  return {
+    isValid: duplicates.length === 0,
+    totalAnswers: snapshot.docs.length,
+    uniqueNumbers: Object.keys(numberCounts).length,
+    duplicates,
+    details,
+  };
+}
+
+/**
+ * ลบ player_answers ทั้งหมดในกรณีที่มีข้อผิดพลาด
+ */
+async function cleanupPlayerAnswers(sessionId: string): Promise<void> {
+  const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+  const snapshot = await getDocs(playerAnswersRef);
+
+  const batch = writeBatch(db);
+  snapshot.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+  console.log(`🗑️ Cleaned up ${snapshot.docs.length} player_answers documents`);
 }
 
 /**

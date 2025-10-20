@@ -1073,24 +1073,46 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       {/* Phase: Reveal */}
       {gameState.phase === "reveal" &&
         (() => {
-          // Find the last revealed player answer (เลขที่ถูกโหวต)
-          const lastRevealed = playerAnswers.find(
-            (a) =>
-              a.isRevealed &&
-              a.number ===
-                gameState.revealedNumbers[gameState.revealedNumbers.length - 1]
+          // Find the last revealed player answer (เลขที่ถูกโหวต - ตามเลขสุดท้ายใน revealedNumbers)
+          const lastRevealedNumber = gameState.revealedNumbers[gameState.revealedNumbers.length - 1];
+          const votedAnswer = playerAnswers.find(
+            (a) => a.isRevealed && a.number === lastRevealedNumber
           );
 
-          if (!lastRevealed) return null;
+          if (!votedAnswer) {
+            console.warn("⚠️ No voted answer found for reveal phase", {
+              lastRevealedNumber,
+              revealedNumbers: gameState.revealedNumbers,
+              playerAnswers: playerAnswers.filter(a => a.isRevealed).map(a => ({
+                number: a.number,
+                playerName: a.playerName,
+                isRevealed: a.isRevealed
+              }))
+            });
+            return null;
+          }
 
           // ใช้ผลลัพธ์จาก API (ถูกคำนวณมาจาก backend แล้ว)
-          // ถ้ายังไม่มีผล (กรณี refresh หน้า) จะไม่แสดง result (แสดงแค่เลข)
           const isCorrect = lastRevealResult?.isCorrect;
           const heartsLost = lastRevealResult?.heartsLost ?? 0;
 
+          // หาเลขทั้งหมดที่เปิดในรอบนี้
+          // วิธี: ดูว่า playerAnswers ตัวไหนที่ isRevealed = true และมีเลขอยู่ใน revealedNumbers
+          // แล้วเลขนั้นต้อง >= lastRevealedNumber (เลขที่โหวต)
+          const revealedThisRound = playerAnswers
+            .filter((a) => {
+              // เลขที่เปิดในรอบนี้ = isRevealed และ เลข <= lastRevealedNumber
+              return a.isRevealed && a.number <= lastRevealedNumber;
+            })
+            .map((a) => a.number)
+            .filter((num, index, self) => self.indexOf(num) === index) // unique
+            .sort((a, b) => a - b);
+
           console.log("🔍 UI Reveal check:", {
-            lastRevealedNumber: lastRevealed.number,
-            revealedNumbers: gameState.revealedNumbers,
+            votedNumber: votedAnswer.number,
+            lastRevealedNumber,
+            revealedThisRound,
+            allRevealedNumbers: gameState.revealedNumbers,
             isCorrect,
             heartsLost,
             fromAPI: !!lastRevealResult,
@@ -1109,20 +1131,46 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                     คำใบ้ที่ได้รับโหวตมากสุด:
                   </div>
                   <div className="text-white text-2xl font-bold mb-2">
-                    {lastRevealed.playerName}
+                    {votedAnswer.playerName}
                   </div>
                   <div className="text-white/90 text-xl italic mb-4">
-                    &quot;{lastRevealed.answer}&quot;
+                    &quot;{votedAnswer.answer}&quot;
                   </div>
                 </div>
 
-                {/* Number Reveal */}
+                {/* Number Reveal - แสดงเลขที่เปิดทั้งหมดในรอบนี้ */}
                 <div className="bg-white/20 rounded-xl p-6 mb-4">
                   <div className="text-center">
-                    <div className="text-white/70 mb-2">หมายเลข:</div>
-                    <div className="text-6xl font-bold text-yellow-300">
-                      {lastRevealed.number}
+                    <div className="text-white/70 mb-2">
+                      {revealedThisRound.length > 1
+                        ? "เปิดเลขทั้งหมด:"
+                        : "หมายเลข:"}
                     </div>
+                    {revealedThisRound.length > 1 ? (
+                      <div className="flex flex-wrap justify-center gap-3">
+                        {revealedThisRound.map((num, i) => (
+                          <div
+                            key={i}
+                            className={`text-5xl font-bold ${
+                              num === votedAnswer.number
+                                ? "text-yellow-300"
+                                : "text-yellow-300/60"
+                            }`}
+                          >
+                            {num}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-6xl font-bold text-yellow-300">
+                        {votedAnswer.number}
+                      </div>
+                    )}
+                    {revealedThisRound.length > 1 && (
+                      <div className="text-white/50 text-sm mt-2">
+                        (เปิดเลขสุดท้ายอัตโนมัติ)
+                      </div>
+                    )}
                   </div>
                 </div>
 
