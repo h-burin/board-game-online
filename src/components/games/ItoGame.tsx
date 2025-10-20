@@ -384,9 +384,9 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
   return (
     <div className="space-y-6">
-      {/* Game Header */}
+      {/* Game Header & Question */}
       <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20 mt-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-bold text-white mb-2">เกมความสามัคคี</h2>
             <p className="text-blue-200">เปิดแล้ว {gameState.revealedNumbers.length}/{gameState.totalRounds} เลข</p>
@@ -414,7 +414,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
         {/* Timer */}
         {gameState.phase !== 'finished' && gameState.phaseEndTime && (
-          <div className="mt-4 text-center">
+          <div className="mb-6 text-center">
             <div className="text-4xl font-bold text-yellow-300">
               {minutes}:{seconds.toString().padStart(2, '0')}
             </div>
@@ -423,12 +423,12 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             </div>
           </div>
         )}
-      </div>
 
-      {/* Question */}
-      <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-        <h3 className="text-lg text-white/70 mb-2">โจทย์:</h3>
-        <p className="text-3xl font-bold text-white">{gameState.questionText}</p>
+        {/* Question */}
+        <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl p-6 border border-white/10">
+          <h3 className="text-lg text-white/70 mb-2">โจทย์:</h3>
+          <p className="text-3xl font-bold text-white">{gameState.questionText}</p>
+        </div>
       </div>
 
       {/* My Numbers */}
@@ -645,7 +645,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                   คุณสามารถแก้ไขคำใบ้ได้ตลอดจนกว่าจะถูกเปิด
                 </p>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {answersWithIndex
                     .filter(ans => !ans.isRevealed)
                     .sort((a, b) => a.answerIndex - b.answerIndex)
@@ -848,8 +848,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         if (!lastRevealed) return null;
 
         // ใช้ผลลัพธ์จาก API (ถูกคำนวณมาจาก backend แล้ว)
-        // ถ้ายังไม่มีผล (กรณี refresh หน้า) ให้ fallback เป็น true
-        const isCorrect = lastRevealResult?.isCorrect ?? true;
+        // ถ้ายังไม่มีผล (กรณี refresh หน้า) จะไม่แสดง result (แสดงแค่เลข)
+        const isCorrect = lastRevealResult?.isCorrect;
         const heartsLost = lastRevealResult?.heartsLost ?? 0;
 
         console.log('🔍 UI Reveal check:', {
@@ -880,21 +880,25 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
                 </div>
               </div>
 
-              {/* Correct/Incorrect */}
-              {isCorrect ? (
-                <div className="text-center">
-                  <div className="text-6xl mb-2">✅</div>
-                  <div className="text-2xl font-bold text-green-400">ถูกต้อง!</div>
-                  <div className="text-white/70 mt-2">นี่คือตัวเลขที่น้อยที่สุด</div>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <div className="text-6xl mb-2">❌</div>
-                  <div className="text-2xl font-bold text-red-400">ผิด!</div>
-                  <div className="text-white/70 mt-2">
-                    ข้ามตัวเลขไป - เสียหัวใจ {heartsLost} ดวง
-                  </div>
-                </div>
+              {/* Correct/Incorrect - แสดงเฉพาะเมื่อมีผลลัพธ์จาก API แล้ว */}
+              {isCorrect !== undefined && (
+                <>
+                  {isCorrect ? (
+                    <div className="text-center">
+                      <div className="text-6xl mb-2">✅</div>
+                      <div className="text-2xl font-bold text-green-400">ถูกต้อง!</div>
+                      <div className="text-white/70 mt-2">นี่คือตัวเลขที่น้อยที่สุด</div>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <div className="text-6xl mb-2">❌</div>
+                      <div className="text-2xl font-bold text-red-400">ผิด!</div>
+                      <div className="text-white/70 mt-2">
+                        ข้ามตัวเลขไป - เสียหัวใจ {heartsLost} ดวง
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
