@@ -53,6 +53,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const [lastRevealResult, setLastRevealResult] = useState<{
     isCorrect: boolean;
     heartsLost: number;
+    newHearts: number;
   } | null>(null);
   const [statusTab, setStatusTab] = useState<"hints" | "votes">("hints"); // Tab สำหรับสถานะการส่งคำใบ้และการโหวต
   const prevAnswersRef = useRef<string>("");
@@ -296,10 +297,11 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       if (data.success) {
         console.log("✅ Votes revealed:", data);
-        // เก็บผลลัพธ์จาก API
+        // เก็บผลลัพธ์จาก API (รวม newHearts)
         setLastRevealResult({
           isCorrect: data.isCorrect,
           heartsLost: data.heartsLost,
+          newHearts: data.newHearts,
         });
         // Phase จะเปลี่ยนเป็น 'reveal' อัตโนมัติจาก Firebase
         // ไม่ต้องทำอะไร รอ useEffect จัดการต่อ
@@ -452,24 +454,47 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             </p>
           </div>
 
-          {/* Hearts */}
+          {/* Hearts - แสดงหัวใจที่ถูกต้องทุก phase */}
           <div>
             <div className="flex items-center gap-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`text-4xl transition-all duration-500 ${
-                    i < gameState.hearts
-                      ? "text-red-500 scale-100"
-                      : "text-gray-600 opacity-30 scale-75"
-                  }`}
-                >
-                  ❤️
-                </div>
-              ))}
+              {Array.from({ length: 3 }).map((_, i) => {
+                // คำนวณหัวใจที่แสดง
+                let currentHearts = gameState.hearts;
+
+                // Reveal phase: ใช้ newHearts จาก API โดยตรง (ไม่ต้องคำนวณเอง)
+                if (gameState.phase === "reveal" && lastRevealResult) {
+                  currentHearts = lastRevealResult.newHearts;
+                }
+                // Finished phase แพ้: หัวใจ = 0
+                else if (gameState.phase === "finished" && gameState.status === "lost") {
+                  currentHearts = 0;
+                }
+
+                return (
+                  <div
+                    key={i}
+                    className={`text-4xl transition-all duration-500 ${
+                      i < currentHearts
+                        ? "text-red-500 scale-100"
+                        : "text-gray-600 opacity-30 scale-75"
+                    }`}
+                  >
+                    ❤️
+                  </div>
+                );
+              })}
             </div>
             <div className="text-center text-white/70 text-sm mt-1">
-              {gameState.hearts} / 3
+              {(() => {
+                // คำนวณหัวใจที่แสดง
+                if (gameState.phase === "reveal" && lastRevealResult) {
+                  return lastRevealResult.newHearts;
+                } else if (gameState.phase === "finished" && gameState.status === "lost") {
+                  return 0;
+                } else {
+                  return gameState.hearts;
+                }
+              })()} / 3
             </div>
           </div>
         </div>
@@ -1505,21 +1530,25 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             <div className="mb-6">
               <div className="text-white/70 mb-2">หัวใจคงเหลือ:</div>
               <div className="flex justify-center gap-2 mb-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`text-5xl ${
-                      i < gameState.hearts
-                        ? "text-red-500"
-                        : "text-gray-600 opacity-30"
-                    }`}
-                  >
-                    ❤️
-                  </div>
-                ))}
+                {Array.from({ length: 3 }).map((_, i) => {
+                  // ถ้า status = "lost" แสดงว่าหัวใจ = 0
+                  const finalHearts = gameState.status === "lost" ? 0 : gameState.hearts;
+                  return (
+                    <div
+                      key={i}
+                      className={`text-5xl ${
+                        i < finalHearts
+                          ? "text-red-500"
+                          : "text-gray-600 opacity-30"
+                      }`}
+                    >
+                      ❤️
+                    </div>
+                  );
+                })}
               </div>
               <div className="text-3xl font-bold text-yellow-300">
-                {gameState.hearts} / 3
+                {gameState.status === "lost" ? 0 : gameState.hearts} / 3
               </div>
             </div>
 
