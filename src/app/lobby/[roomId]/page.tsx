@@ -252,8 +252,8 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
-      <div className="max-w-4xl mx-auto py-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 flex items-center justify-center">
+      <div className="max-w-4xl w-full">
         {/* Header Section */}
         <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
           <div className="text-center">
@@ -265,7 +265,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
             <div className="mb-6">
               <p className="text-blue-200 mb-2">รหัสห้อง</p>
               <div className="flex items-center justify-center gap-3">
-                <div className="text-5xl font-bold text-white tracking-widest">
+                <div className="text-5xl font-bold text-yellow-200 tracking-widest">
                   {room.code.slice(0, 3)}-{room.code.slice(3)}
                 </div>
                 <button
@@ -313,45 +313,45 @@ export default function LobbyPage({ params }: LobbyPageProps) {
         <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
           <h2 className="text-2xl font-bold text-white mb-6">ผู้เล่น</h2>
 
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {players.map((player, index) => (
               <div
                 key={player.id}
-                className="bg-white/10 rounded-2xl p-4 flex items-center justify-between transition-all hover:bg-white/20 animate-fadeIn"
+                className="bg-white/10 rounded-2xl p-4 transition-all hover:bg-white/20 animate-fadeIn"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className="flex items-center gap-4">
-                  {/* Online Status */}
-                  <div className={`w-3 h-3 rounded-full ${player.isOnline ? 'bg-green-400' : 'bg-gray-500'}`} />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {/* Online Status */}
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${player.isOnline ? 'bg-green-400' : 'bg-gray-500'}`} />
 
-                  {/* Player Name */}
-                  <span className="text-white font-semibold text-lg">{player.name}</span>
+                    {/* Player Name */}
+                    <span className="text-white font-semibold text-base truncate">{player.name}</span>
 
-                  {/* Badges */}
-                  <div className="flex gap-2">
+                    {/* Badges */}
                     {player.isHost && (
-                      <span className="bg-yellow-500/30 text-yellow-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span className="bg-yellow-500/30 text-yellow-200 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
                         Host
                       </span>
                     )}
                     {player.isReady && (
-                      <span className="bg-green-500/30 text-green-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span className="bg-green-500/30 text-green-200 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
                         Ready
                       </span>
                     )}
                   </div>
-                </div>
 
-                {/* Kick Button (Host only, can't kick themselves) */}
-                {isHost && !player.isHost && (
-                  <button
-                    onClick={() => handleKick(player.id, player.name)}
-                    disabled={actionLoading}
-                    className="text-red-400 hover:text-red-300 text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Kick
-                  </button>
-                )}
+                  {/* Kick Button (Host only, can't kick themselves) */}
+                  {isHost && !player.isHost && (
+                    <button
+                      onClick={() => handleKick(player.id, player.name)}
+                      disabled={actionLoading}
+                      className="text-red-400 hover:text-red-300 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    >
+                      Kick
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
