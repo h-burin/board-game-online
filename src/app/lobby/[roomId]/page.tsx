@@ -254,116 +254,134 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 flex items-center justify-center">
       <div className="max-w-4xl w-full">
-        {/* Header Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-8 mb-4 md:mb-6 border border-white/20">
-          <div className="text-center space-y-4 md:space-y-6">
-            <h1 className="text-2xl md:text-3xl font-bold text-white">
-              ห้องรอ
-            </h1>
-
-            {/* Room Code Card */}
-            <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl p-4 md:p-6 border border-blue-400/30">
-              <p className="text-xs md:text-sm text-blue-200 mb-2 font-medium">รหัสห้อง</p>
-              <div className="flex items-center justify-center gap-3">
-                <div className="text-4xl md:text-6xl font-bold text-yellow-200 tracking-[0.1em] drop-shadow-lg">
-                  {room.code.slice(0, 3)}-{room.code.slice(3)}
+        {/* Combined Header + Players Section */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-4 md:p-8 mb-4 md:mb-6 border border-white/20">
+          {/* Game Name & Room Code Header */}
+          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl md:rounded-3xl p-4 md:p-6 mb-4 md:mb-6 border border-blue-400/30">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4">
+              {/* Game Name */}
+              <div className="text-center md:text-left w-full md:w-auto">
+                <h1 className="text-xl md:text-3xl font-bold text-white mb-2 md:mb-2">
+                  {selectedGame?.name || 'เกม'}
+                </h1>
+                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-2">
+                  <p className="text-xs md:text-base text-blue-200">
+                    รหัสห้อง:
+                  </p>
+                  <div className="flex items-center gap-2 justify-center">
+                    <span className="font-bold text-yellow-200 text-2xl md:text-lg tracking-wider">
+                      {room.code.slice(0, 3)}-{room.code.slice(3)}
+                    </span>
+                    <button
+                      onClick={handleCopyCode}
+                      className="bg-white/20 hover:bg-white/30 active:scale-95 p-1.5 md:p-2 rounded-lg transition-all"
+                      title="คัดลอกรหัสห้อง"
+                    >
+                      {copied ? (
+                        <svg className="w-5 h-5 md:w-5 md:h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 md:w-5 md:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={handleCopyCode}
-                  className="bg-white/20 hover:bg-white/30 active:scale-95 p-2.5 md:p-3 rounded-xl transition-all shadow-lg"
-                  title="คัดลอกรหัสห้อง"
-                >
-                  {copied ? (
-                    <svg className="w-5 h-5 md:w-6 md:h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  )}
-                </button>
               </div>
-            </div>
 
-            {/* Status & Player Count */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Status */}
+              {/* Status Badge */}
               <div className={`${
                 canStartGame
-                  ? 'bg-green-500/20 border-green-400/40'
-                  : 'bg-blue-500/20 border-blue-400/40'
-              } rounded-xl p-3 border`}>
-                <p className="text-xs text-white/60 mb-1">สถานะ</p>
-                <p className="text-sm md:text-base font-semibold text-white">
+                  ? 'bg-green-500/30 border-green-400/50'
+                  : 'bg-blue-500/30 border-blue-400/50'
+              } rounded-xl px-4 py-2 border backdrop-blur-sm`}>
+                <p className="text-xs md:text-sm text-white/80 font-semibold text-center whitespace-nowrap">
                   {canStartGame
-                    ? '✓ พร้อมเริ่มเกม'
+                    ? '✓ กำลังเล่น'
                     : room.currentPlayers < minPlayers
-                    ? `รอผู้เล่น... (${room.currentPlayers}/${minPlayers})`
-                    : 'รอผู้เล่นกด Ready...'}
-                </p>
-              </div>
-
-              {/* Player Count */}
-              <div className="bg-purple-500/20 border-purple-400/40 rounded-xl p-3 border">
-                <p className="text-xs text-white/60 mb-1">จำนวนผู้เล่น</p>
-                <p className="text-sm md:text-base font-semibold text-white">
-                  {room.currentPlayers}/{room.maxPlayers} คน
+                    ? `รอผู้เล่น (${room.currentPlayers}/${minPlayers})`
+                    : 'รออยู่'}
                 </p>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Error Message */}
-        {actionError && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-3 md:p-4 mb-4 md:mb-6">
-            <p className="text-red-200 text-xs md:text-sm font-semibold">{actionError}</p>
+          {/* Error Message */}
+          {actionError && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 mb-4">
+              <p className="text-red-200 text-xs md:text-sm font-semibold">{actionError}</p>
+            </div>
+          )}
+
+          {/* Players Title */}
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-base md:text-xl font-bold text-white">
+              ผู้เล่นทั้งหมด
+            </h2>
+            <span className="text-sm md:text-base text-white/70 font-semibold">
+              {room.currentPlayers}/{room.maxPlayers} คน
+            </span>
           </div>
-        )}
 
-        {/* Players Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-8 mb-4 md:mb-6 border border-white/20">
-          <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">ผู้เล่น</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Players List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
             {players.map((player, index) => (
               <div
                 key={player.id}
-                className="bg-white/10 rounded-2xl p-4 transition-all hover:bg-white/20 animate-fadeIn"
-                style={{ animationDelay: `${index * 0.1}s` }}
+                className="bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 transition-all hover:bg-white/20 animate-fadeIn border border-white/5"
+                style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {/* Online Status */}
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${player.isOnline ? 'bg-green-400' : 'bg-gray-500'}`} />
+                {/* Mobile: Vertical Layout, Desktop: Horizontal Layout */}
+                <div className="flex flex-row md:items-center justify-between gap-2 md:gap-4">
+                  {/* Top Row (Mobile) / Left Side (Desktop): Number Badge + Name + Online Status */}
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    {/* Player Number Badge */}
+                    <div className="w-8 h-8 md:w-11 md:h-11 rounded-full bg-gradient-to-br from-purple-500/40 to-blue-500/40 flex items-center justify-center flex-shrink-0 border border-white/20">
+                      <span className="text-white font-bold text-sm md:text-lg">#{index + 1}</span>
+                    </div>
 
                     {/* Player Name */}
-                    <span className="text-white font-semibold text-base truncate">{player.name}</span>
+                    <span className="text-white font-semibold text-sm md:text-lg truncate flex-1">{player.name}</span>
 
-                    {/* Badges */}
-                    {player.isHost && (
-                      <span className="bg-yellow-500/30 text-yellow-200 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
-                        Host
-                      </span>
-                    )}
-                    {player.isReady && (
-                      <span className="bg-green-500/30 text-green-200 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0">
-                        Ready
-                      </span>
-                    )}
+                    {/* Online Status (visible on mobile) */}
+                    <div className={`w-2 h-2 md:hidden rounded-full flex-shrink-0 ${player.isOnline ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]' : 'bg-gray-500'}`} />
                   </div>
 
-                  {/* Kick Button (Host only, can't kick themselves) */}
-                  {isHost && !player.isHost && (
-                    <button
-                      onClick={() => handleKick(player.id, player.name)}
-                      disabled={actionLoading}
-                      className="text-red-400 hover:text-red-300 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                    >
-                      Kick
-                    </button>
-                  )}
+                  {/* Bottom Row (Mobile) / Right Side (Desktop): Badges + Online Status + Kick Button */}
+                  <div className="flex items-center justify-between md:justify-end gap-2 md:gap-3">
+                    {/* Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {player.isHost && (
+                        <span className="bg-yellow-500/30 text-yellow-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold border border-yellow-400/30">
+                          Host
+                        </span>
+                      )}
+                      {player.isReady && !player.isHost && (
+                        <span className="bg-green-500/30 text-green-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold border border-green-400/30">
+                          Ready
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Right Side Group: Online Status (desktop) + Kick Button */}
+                    <div className="flex items-center gap-2 md:gap-3">
+                      {/* Online Status (visible on desktop) */}
+                      <div className={`hidden md:block w-3 h-3 rounded-full flex-shrink-0 ${player.isOnline ? 'bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]' : 'bg-gray-500'}`} />
+
+                      {/* Kick Button (Host only, can't kick themselves) */}
+                      {isHost && !player.isHost && (
+                        <button
+                          onClick={() => handleKick(player.id, player.name)}
+                          disabled={actionLoading}
+                          className="bg-gradient-to-r from-red-500/20 to-red-600/20 hover:from-red-500/30 hover:to-red-600/30 border border-red-500/40 text-red-300 hover:text-red-200 text-xs md:text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 px-2.5 md:px-4 py-1 md:py-2 rounded-lg shadow-sm hover:shadow-md active:scale-95"
+                        >
+                          เตะ
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

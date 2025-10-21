@@ -405,16 +405,16 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Fixed Home Button */}
       <button
         onClick={() => (window.location.href = "/")}
-        className="fixed top-6 right-6 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-bold p-3 rounded-full shadow-2xl transition-all transform hover:scale-110 z-50 flex items-center justify-center"
+        className="fixed top-4 right-4 md:top-6 md:right-6 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-bold p-2.5 md:p-3 rounded-full shadow-2xl transition-all transform hover:scale-110 z-50 flex items-center justify-center"
         title="กลับหน้าหลัก"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6"
+          className="h-5 w-5 md:h-6 md:w-6"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

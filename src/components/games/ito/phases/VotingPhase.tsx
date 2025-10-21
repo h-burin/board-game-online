@@ -94,39 +94,39 @@ export default function VotingPhase({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* ส่วนพิมพ์คำใบ้ของตัวเอง */}
       {myAnswers.filter((ans) => !ans.isRevealed).length > 0 && (
-        <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-purple-400/30">
-          <h3 className="text-2xl font-bold text-white mb-4">
+        <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-purple-400/30">
+          <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
             คำใบ้ของคุณ
           </h3>
-          <p className="text-white/70 mb-6">
+          <p className="text-white/70 mb-4 md:mb-6 text-sm md:text-base">
             คุณสามารถแก้ไขคำใบ้ได้ตลอดจนกว่าจะถูกเปิด
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             {myAnswers
               .filter((ans) => !ans.isRevealed)
               .sort((a, b) => a.answerIndex - b.answerIndex)
               .map((ans) => (
                 <div
                   key={ans.answerIndex}
-                  className="bg-white/10 rounded-2xl p-6 border border-white/20"
+                  className="bg-white/10 rounded-xl md:rounded-2xl p-4 md:p-6 border border-white/20"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-white/70">
+                  <div className="flex items-center justify-between mb-2 md:mb-3">
+                    <div className="text-white/70 text-sm md:text-base">
                       {myAnswers.length > 1
                         ? `เลขที่ ${ans.answerIndex + 1}:`
                         : "เลขของคุณ:"}
                     </div>
-                    <div className="text-3xl font-bold text-yellow-300">
+                    <div className="text-2xl md:text-3xl font-bold text-yellow-300">
                       {ans.number}
                     </div>
                   </div>
 
                   <textarea
-                    className="w-full p-4 rounded-xl bg-white/10 text-white border border-white/20 focus:border-white/50 focus:outline-none resize-none"
+                    className="w-full p-3 md:p-4 rounded-xl bg-white/10 text-white border border-white/20 focus:border-white/50 focus:outline-none resize-none text-sm md:text-base"
                     rows={2}
                     placeholder={`พิมพ์คำใบ้สำหรับเลข ${ans.number}...`}
                     value={answers[ans.answerIndex] || ""}
@@ -143,7 +143,7 @@ export default function VotingPhase({
                     disabled={
                       !answers[ans.answerIndex]?.trim() || submitting
                     }
-                    className={`mt-3 w-full font-bold py-2 rounded-xl transition-all ${
+                    className={`mt-2 md:mt-3 w-full font-bold py-2 rounded-xl transition-all text-sm md:text-base ${
                       ans.answer
                         ? "bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-500 disabled:to-gray-600"
                         : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600"
@@ -162,11 +162,11 @@ export default function VotingPhase({
       )}
 
       {/* ส่วนโหวต */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-        <h3 className="text-2xl font-bold text-white mb-4">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20">
+        <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
           เลือกคำใบ้ที่น้อยที่สุด
         </h3>
-        <p className="text-white/70 mb-4">
+        <p className="text-white/70 mb-3 md:mb-4 text-sm md:text-base">
           คลิกเลือกคำใบ้ที่คุณคิดว่าสื่อถึงตัวเลขที่น้อยที่สุด
         </p>
 
@@ -174,32 +174,34 @@ export default function VotingPhase({
         <RevealedNumbersList revealedNumbers={gameState.revealedNumbers} />
 
         {/* Tab Navigation สำหรับสถานะ */}
-        <div className="bg-white/5 rounded-xl p-4 mb-6">
+        <div className="bg-white/5 rounded-xl p-3 md:p-4 mb-4 md:mb-6">
           {/* Tab Headers */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex gap-2 mb-3 md:mb-4">
             <button
               onClick={() => setStatusTab("hints")}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-semibold transition-all text-xs md:text-base ${
                 statusTab === "hints"
                   ? "bg-blue-500 text-white shadow-lg"
                   : "bg-white/10 text-white/60 hover:bg-white/20"
               }`}
             >
-              สถานะการส่งคำใบ้
-              <div className="text-sm mt-1">
+              <div className="hidden md:block">สถานะการส่งคำใบ้</div>
+              <div className="md:hidden">คำใบ้</div>
+              <div className="text-xs md:text-sm mt-1">
                 {playersCompleted.length} / {totalPlayers}
               </div>
             </button>
             <button
               onClick={() => setStatusTab("votes")}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-semibold transition-all text-xs md:text-base ${
                 statusTab === "votes"
                   ? "bg-blue-500 text-white shadow-lg"
                   : "bg-white/10 text-white/60 hover:bg-white/20"
               }`}
             >
-              สถานะการโหวต
-              <div className="text-sm mt-1">
+              <div className="hidden md:block">สถานะการโหวต</div>
+              <div className="md:hidden">โหวต</div>
+              <div className="text-xs md:text-sm mt-1">
                 {voteCount} / {totalPlayers}
               </div>
             </button>
@@ -208,27 +210,27 @@ export default function VotingPhase({
           {/* Tab Content */}
           {statusTab === "hints" ? (
             <div>
-              <div className="text-center text-white/70 mb-3">
+              <div className="text-center text-white/70 mb-2 md:mb-3 text-xs md:text-sm">
                 {playersCompleted.length} / {totalPlayers} คนส่งครบแล้ว
               </div>
 
               {!allPlayersSubmittedAll && (
-                <div className="text-center text-orange-300 text-sm mb-3 bg-orange-500/20 rounded-lg py-2">
+                <div className="text-center text-orange-300 text-xs md:text-sm mb-2 md:mb-3 bg-orange-500/20 rounded-lg py-2">
                   ⚠️ รอให้ทุกคนพิมพ์คำใบ้ครบก่อนโหวต
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
                 {/* ส่งครบแล้ว */}
                 <div>
-                  <div className="text-green-400 text-sm mb-2 text-center">
+                  <div className="text-green-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
                     ✅ ส่งครบแล้ว
                   </div>
                   <div className="space-y-1">
                     {playersCompleted.map((p, i) => (
                       <div
                         key={i}
-                        className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1"
+                        className="text-white/80 text-xs md:text-sm text-center bg-green-500/20 rounded py-1"
                       >
                         {p.playerName} ({p.submittedCount}/{p.totalExpected})
                       </div>
@@ -238,14 +240,14 @@ export default function VotingPhase({
 
                 {/* ยังส่งไม่ครบ */}
                 <div>
-                  <div className="text-orange-400 text-sm mb-2 text-center">
+                  <div className="text-orange-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
                     ⏳ ยังส่งไม่ครบ
                   </div>
                   <div className="space-y-1">
                     {playersNotCompleted.map(([id, p]) => (
                       <div
                         key={id}
-                        className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1"
+                        className="text-white/50 text-xs md:text-sm text-center bg-orange-500/20 rounded py-1"
                       >
                         {p.playerName} ({p.submittedCount}/{p.totalExpected})
                       </div>
@@ -256,20 +258,20 @@ export default function VotingPhase({
             </div>
           ) : (
             <div>
-              <div className="text-center text-white/70 mb-3">
+              <div className="text-center text-white/70 mb-2 md:mb-3 text-xs md:text-sm">
                 {voteCount} / {totalPlayers} คนโหวตแล้ว
               </div>
 
               {!allPlayersSubmittedAll && (
-                <div className="text-center text-orange-300 text-sm mb-3 bg-orange-500/20 rounded-lg py-2">
+                <div className="text-center text-orange-300 text-xs md:text-sm mb-2 md:mb-3 bg-orange-500/20 rounded-lg py-2">
                   ⚠️ ต้องพิมพ์คำใบ้ครบก่อนจึงจะโหวตได้
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
                 {/* โหวตแล้ว */}
                 <div>
-                  <div className="text-green-400 text-sm mb-2 text-center">
+                  <div className="text-green-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
                     ✓ โหวตแล้ว ({playersWhoVoted.length})
                   </div>
                   <div className="space-y-1">
@@ -280,7 +282,7 @@ export default function VotingPhase({
                       return (
                         <div
                           key={id}
-                          className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1"
+                          className="text-white/80 text-xs md:text-sm text-center bg-green-500/20 rounded py-1"
                         >
                           {player?.playerName}
                         </div>
@@ -291,7 +293,7 @@ export default function VotingPhase({
 
                 {/* ยังไม่โหวต */}
                 <div>
-                  <div className="text-orange-400 text-sm mb-2 text-center">
+                  <div className="text-orange-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
                     ⏳ รอโหวต ({playersWhoNotVoted.length})
                   </div>
                   <div className="space-y-1">
@@ -302,7 +304,7 @@ export default function VotingPhase({
                       return (
                         <div
                           key={id}
-                          className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1"
+                          className="text-white/50 text-xs md:text-sm text-center bg-orange-500/20 rounded py-1"
                         >
                           {player?.playerName}
                         </div>
@@ -318,7 +320,7 @@ export default function VotingPhase({
         {/* ส่วนโหวต - แสดงเฉพาะเมื่อทุกคนส่งครบแล้ว */}
         {allPlayersSubmittedAll ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
               {playerAnswers
                 .filter((a) => !a.isRevealed && a.answer.trim() !== "")
                 .map((playerAnswer) => {
@@ -347,44 +349,44 @@ export default function VotingPhase({
                     <button
                       key={answerId}
                       onClick={() => setSelectedAnswerId(answerId)}
-                      className={`p-6 rounded-2xl border-2 transition-all cursor-pointer ${
+                      className={`p-4 md:p-6 rounded-xl md:rounded-2xl border-2 transition-all cursor-pointer ${
                         selectedAnswerId === answerId
                           ? "border-yellow-400 bg-yellow-500/30"
                           : "border-white/20 bg-white/5 hover:bg-white/10"
                       }`}
                     >
-                      <div className="text-white/70 text-sm mb-2">
+                      <div className="text-white/70 text-xs md:text-sm mb-2">
                         {playerAnswer.playerName}
                       </div>
-                      <div className="text-white text-2xl font-semibold">
+                      <div className="text-white text-lg md:text-2xl font-semibold">
                         {playerAnswer.answer}
                       </div>
                       {playerAnswer.playerId === playerId && (
-                        <div className="text-blue-300 text-sm mt-2">
+                        <div className="text-blue-300 text-xs md:text-sm mt-2">
                           (คำใบ้ของคุณ)
                         </div>
                       )}
 
                       {/* แสดงว่าใครโหวตคำใบ้นี้ */}
                       {voterNames.length > 0 && (
-                        <div className="mt-3 pt-3 from-green-500/20 to-blue-500/20">
+                        <div className="mt-2 md:mt-3 pt-2 md:pt-3 from-green-500/20 to-blue-500/20">
                           <div className="flex items-center gap-2 mb-2 justify-center">
-                            <div className="flex items-center  justify-center w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full">
+                            <div className="flex items-center  justify-center w-5 h-5 md:w-6 md:h-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full">
                               <span className="text-white text-xs font-bold">
                                 {voterNames.length}
                               </span>
                             </div>
-                            <span className="text-green-400 text-sm font-semibold">
+                            <span className="text-green-400 text-xs md:text-sm font-semibold">
                               โหวต
                             </span>
                           </div>
-                          <div className="flex flex-wrap gap-2 justify-center">
+                          <div className="flex flex-wrap gap-1.5 md:gap-2 justify-center">
                             {voterNames.map((name, idx) => (
                               <div
                                 key={idx}
-                                className="group relative px-3 py-1.5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/40 hover:to-emerald-500/40 border border-green-400/30 rounded-lg transition-all duration-200 hover:scale-105"
+                                className="group relative px-2 md:px-3 py-1 md:py-1.5 bg-gradient-to-r from-green-500/30 to-emerald-500/30 hover:from-green-500/40 hover:to-emerald-500/40 border border-green-400/30 rounded-lg transition-all duration-200 hover:scale-105"
                               >
-                                <span className="text-green-200 text-sm font-medium">
+                                <span className="text-green-200 text-xs md:text-sm font-medium">
                                   {name}
                                 </span>
                                 <div className="absolute inset-0 bg-gradient-to-r from-green-400/0 via-green-400/10 to-green-400/0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
@@ -401,17 +403,17 @@ export default function VotingPhase({
             <button
               onClick={handleSubmitVote}
               disabled={!selectedAnswerId || submitting}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105"
             >
               {submitting ? "กำลังส่ง..." : "ยืนยันการเลือก"}
             </button>
           </>
         ) : (
-          <div className="text-center py-8 bg-gray-500/20 rounded-2xl">
-            <div className="text-white/70 text-lg mb-2">
+          <div className="text-center py-6 md:py-8 bg-gray-500/20 rounded-xl md:rounded-2xl">
+            <div className="text-white/70 text-base md:text-lg mb-2">
               ⏳ รอให้ทุกคนพิมพ์คำใบ้ครบก่อน
             </div>
-            <div className="text-white/50 text-sm">
+            <div className="text-white/50 text-xs md:text-sm">
               จึงจะสามารถโหวตได้
             </div>
           </div>

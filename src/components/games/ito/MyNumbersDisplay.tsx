@@ -25,23 +25,23 @@ export default function MyNumbersDisplay({
   if (myAnswers.length === 0) return null;
 
   return (
-    <div className="bg-yellow-500/20 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border-2 border-yellow-400">
+    <div className="bg-yellow-500/20 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-6 border-2 border-yellow-400">
       <div className="text-center">
-        <p className="text-white/70 mb-2">
+        <p className="text-white/70 mb-2 text-sm md:text-base">
           {myAnswers.length === 1
             ? "เลขของคุณ:"
             : `เลขของคุณ (${myAnswers.length} เลข):`}
         </p>
-        <div className="flex flex-wrap justify-center gap-4">
+        <div className="flex flex-wrap justify-center gap-3 md:gap-4">
           {myAnswers
             .sort((a, b) => a.answerIndex - b.answerIndex)
             .map((ans, idx) => (
               <div key={idx} className="text-center">
-                <div className="text-6xl font-bold text-yellow-300">
+                <div className="text-4xl md:text-6xl font-bold text-yellow-300">
                   {ans.number}
                 </div>
                 {myAnswers.length > 1 && (
-                  <div className="text-white/50 text-sm mt-1">
+                  <div className="text-white/50 text-xs md:text-sm mt-1">
                     เลขที่ {idx + 1}
                   </div>
                 )}

@@ -87,13 +87,13 @@ export default function LevelCompletePhase({
   };
 
   return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/20">
-      <div className="text-center mb-8">
-        <div className="text-8xl mb-6">🎊</div>
-        <h3 className="text-4xl font-bold text-blue-400 mb-4">
+    <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-12 border border-white/20">
+      <div className="text-center mb-6 md:mb-8">
+        <div className="text-6xl md:text-8xl mb-4 md:mb-6">🎊</div>
+        <h3 className="text-2xl md:text-4xl font-bold text-blue-400 mb-3 md:mb-4">
           ผ่านรอบที่ {gameState.currentLevel}!
         </h3>
-        <p className="text-white/90 text-xl">
+        <p className="text-white/90 text-base md:text-xl">
           {gameState.currentLevel >= gameState.totalLevels
             ? "เยี่ยมมาก! เตรียมพร้อมดูผลลัพธ์"
             : "เยี่ยมมาก! เตรียมพร้อมสำหรับรอบถัดไป"}
@@ -101,33 +101,33 @@ export default function LevelCompletePhase({
       </div>
 
       {/* เลขทั้งหมด (เปิดแล้ว + ยังไม่เปิด) */}
-      <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-2xl p-6 mb-6 border border-green-400/30">
-        <h4 className="text-white font-bold mb-4 text-center text-xl">
+      <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl md:rounded-2xl p-3 md:p-6 mb-4 md:mb-6 border border-green-400/30">
+        <h4 className="text-white font-bold mb-3 md:mb-4 text-center text-base md:text-xl">
           ตัวเลขทั้งหมดในรอบนี้
         </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3 max-h-96 overflow-y-auto">
           {/* เลขที่เปิดแล้ว */}
           {revealedAnswers.map((ans, i) => (
             <div
               key={i}
-              className="bg-white/10 rounded-xl p-4 flex items-center justify-between"
+              className="bg-white/10 rounded-lg md:rounded-xl p-2.5 md:p-4 flex items-center justify-between gap-2"
             >
-              <div className="flex items-center gap-4">
-                <div className="text-3xl font-bold text-yellow-300 min-w-[60px]">
+              <div className="flex items-center gap-2 md:gap-4 min-w-0">
+                <div className="text-xl md:text-3xl font-bold text-yellow-300 min-w-[50px] md:min-w-[60px] flex-shrink-0">
                   [{ans.number}]
                 </div>
-                <div className="text-left">
-                  <div className="text-white text-lg">
+                <div className="text-left min-w-0">
+                  <div className="text-white text-sm md:text-lg truncate">
                     &quot;{ans.answer}&quot;
                   </div>
-                  <div className="text-white/50 text-sm">{ans.playerName}</div>
+                  <div className="text-white/50 text-xs md:text-sm">{ans.playerName}</div>
                 </div>
               </div>
               {ans.isCorrect === true && (
-                <div className="text-green-400 text-xl">✓</div>
+                <div className="text-green-400 text-lg md:text-xl flex-shrink-0">✓</div>
               )}
               {ans.isCorrect === false && (
-                <div className="text-red-400 text-xl">✗</div>
+                <div className="text-red-400 text-lg md:text-xl flex-shrink-0">✗</div>
               )}
             </div>
           ))}
@@ -139,43 +139,43 @@ export default function LevelCompletePhase({
             .map((ans, i) => (
               <div
                 key={`unrevealed-${i}`}
-                className="bg-white/5 rounded-xl p-4 flex items-center justify-between border border-white/10"
+                className="bg-white/5 rounded-lg md:rounded-xl p-2.5 md:p-4 flex items-center justify-between border border-white/10 gap-2"
               >
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl font-bold text-gray-400 min-w-[60px]">
+                <div className="flex items-center gap-2 md:gap-4 min-w-0">
+                  <div className="text-xl md:text-3xl font-bold text-gray-400 min-w-[50px] md:min-w-[60px] flex-shrink-0">
                     [{ans.number}]
                   </div>
-                  <div className="text-left">
-                    <div className="text-gray-400 text-lg">
+                  <div className="text-left min-w-0">
+                    <div className="text-gray-400 text-sm md:text-lg truncate">
                       &quot;{ans.answer}&quot;
                     </div>
-                    <div className="text-gray-500 text-sm">{ans.playerName}</div>
+                    <div className="text-gray-500 text-xs md:text-sm">{ans.playerName}</div>
                   </div>
                 </div>
-                <div className="text-gray-500 text-sm">ยังไม่เปิด</div>
+                <div className="text-gray-500 text-xs md:text-sm flex-shrink-0">ยังไม่เปิด</div>
               </div>
             ))}
         </div>
       </div>
 
       {/* Progress & Hearts */}
-      <div className="bg-white/5 rounded-2xl p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white/5 rounded-xl md:rounded-2xl p-3 md:p-6 mb-4 md:mb-6">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
           <div>
-            <div className="text-white/70 text-sm">ความคืบหน้า:</div>
-            <div className="text-2xl font-bold text-yellow-300">
+            <div className="text-white/70 text-xs md:text-sm">ความคืบหน้า:</div>
+            <div className="text-lg md:text-2xl font-bold text-yellow-300">
               รอบ {gameState.currentLevel} / {gameState.totalLevels}
             </div>
           </div>
           <div>
-            <div className="text-white/70 text-sm text-center mb-1">
+            <div className="text-white/70 text-xs md:text-sm text-center mb-1">
               หัวใจคงเหลือ
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-0.5 md:gap-1">
               {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className={`text-3xl ${
+                  className={`text-2xl md:text-3xl ${
                     i < gameState.hearts
                       ? "text-red-500"
                       : "text-gray-600 opacity-30"
@@ -185,15 +185,15 @@ export default function LevelCompletePhase({
                 </div>
               ))}
             </div>
-            <div className="text-xl font-bold text-white text-center">
+            <div className="text-base md:text-xl font-bold text-white text-center">
               {gameState.hearts} / 3
             </div>
           </div>
         </div>
 
         {gameState.currentLevel < gameState.totalLevels && (
-          <div className="pt-4 border-t border-white/20 text-center">
-            <div className="text-white/90 font-semibold">
+          <div className="pt-3 md:pt-4 border-t border-white/20 text-center">
+            <div className="text-white/90 font-semibold text-sm md:text-base">
               รอบถัดไป: คนละ {gameState.currentLevel + 1} เลข
             </div>
           </div>
@@ -201,25 +201,25 @@ export default function LevelCompletePhase({
       </div>
 
       {/* สถานะผู้เล่น */}
-      <div className="bg-white/5 rounded-2xl p-6 mb-6">
-        <h4 className="text-white font-bold mb-3 text-center">
+      <div className="bg-white/5 rounded-xl md:rounded-2xl p-3 md:p-6 mb-4 md:mb-6">
+        <h4 className="text-white font-bold mb-2 md:mb-3 text-center text-sm md:text-base">
           สถานะผู้เล่น
         </h4>
-        <div className="text-center text-white/70 mb-4">
+        <div className="text-center text-white/70 mb-3 md:mb-4 text-xs md:text-sm">
           {readyCount} / {totalPlayers} คนพร้อมแล้ว
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-2 md:gap-4">
           {/* พร้อมแล้ว */}
           <div>
-            <div className="text-green-400 text-sm mb-2 text-center">
+            <div className="text-green-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
               ✅ พร้อมแล้ว
             </div>
             <div className="space-y-1">
               {readyPlayers.map((r) => (
                 <div
                   key={r.playerId}
-                  className="text-white/80 text-sm text-center bg-green-500/20 rounded py-1"
+                  className="text-white/80 text-xs md:text-sm text-center bg-green-500/20 rounded py-1"
                 >
                   {r.playerName}
                 </div>
@@ -229,14 +229,14 @@ export default function LevelCompletePhase({
 
           {/* รออยู่ */}
           <div>
-            <div className="text-orange-400 text-sm mb-2 text-center">
+            <div className="text-orange-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
               ⏳ รออยู่
             </div>
             <div className="space-y-1">
               {notReadyPlayers.map((id) => (
                 <div
                   key={id}
-                  className="text-white/50 text-sm text-center bg-orange-500/20 rounded py-1"
+                  className="text-white/50 text-xs md:text-sm text-center bg-orange-500/20 rounded py-1"
                 >
                   {playerNames[id]}
                 </div>
@@ -251,7 +251,7 @@ export default function LevelCompletePhase({
         <button
           onClick={handleReady}
           disabled={submitting}
-          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105"
+          className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105"
         >
           {submitting
             ? "กำลังบันทึก..."
@@ -260,11 +260,11 @@ export default function LevelCompletePhase({
             : "พร้อมไปรอบถัดไป"}
         </button>
       ) : (
-        <div className="text-center py-4">
-          <div className="text-green-400 text-2xl font-bold mb-2">
+        <div className="text-center py-3 md:py-4">
+          <div className="text-green-400 text-xl md:text-2xl font-bold mb-2">
             ✓ คุณพร้อมแล้ว
           </div>
-          <div className="text-white/70">รอผู้เล่นคนอื่น...</div>
+          <div className="text-white/70 text-sm md:text-base">รอผู้เล่นคนอื่น...</div>
         </div>
       )}
     </div>
