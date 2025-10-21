@@ -255,30 +255,30 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4 flex items-center justify-center">
       <div className="max-w-4xl w-full">
         {/* Header Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
-          <div className="text-center">
-            <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-8 mb-4 md:mb-6 border border-white/20">
+          <div className="text-center space-y-4 md:space-y-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-white">
               ห้องรอ
             </h1>
 
-            {/* Room Code */}
-            <div className="mb-6">
-              <p className="text-blue-200 mb-2">รหัสห้อง</p>
+            {/* Room Code Card */}
+            <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl p-4 md:p-6 border border-blue-400/30">
+              <p className="text-xs md:text-sm text-blue-200 mb-2 font-medium">รหัสห้อง</p>
               <div className="flex items-center justify-center gap-3">
-                <div className="text-5xl font-bold text-yellow-200 tracking-widest">
+                <div className="text-4xl md:text-6xl font-bold text-yellow-200 tracking-[0.1em] drop-shadow-lg">
                   {room.code.slice(0, 3)}-{room.code.slice(3)}
                 </div>
                 <button
                   onClick={handleCopyCode}
-                  className="bg-white/20 hover:bg-white/30 p-3 rounded-xl transition-colors"
+                  className="bg-white/20 hover:bg-white/30 active:scale-95 p-2.5 md:p-3 rounded-xl transition-all shadow-lg"
                   title="คัดลอกรหัสห้อง"
                 >
                   {copied ? (
-                    <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 md:w-6 md:h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   ) : (
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                   )}
@@ -286,32 +286,45 @@ export default function LobbyPage({ params }: LobbyPageProps) {
               </div>
             </div>
 
-            {/* Status */}
-            <div className="text-lg text-blue-200">
-              {canStartGame
-                ? '✓ พร้อมเริ่มเกม'
-                : room.currentPlayers < minPlayers
-                ? `รอผู้เล่น... (${room.currentPlayers}/${minPlayers})`
-                : 'รอผู้เล่นกด Ready...'}
-            </div>
+            {/* Status & Player Count */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Status */}
+              <div className={`${
+                canStartGame
+                  ? 'bg-green-500/20 border-green-400/40'
+                  : 'bg-blue-500/20 border-blue-400/40'
+              } rounded-xl p-3 border`}>
+                <p className="text-xs text-white/60 mb-1">สถานะ</p>
+                <p className="text-sm md:text-base font-semibold text-white">
+                  {canStartGame
+                    ? '✓ พร้อมเริ่มเกม'
+                    : room.currentPlayers < minPlayers
+                    ? `รอผู้เล่น... (${room.currentPlayers}/${minPlayers})`
+                    : 'รอผู้เล่นกด Ready...'}
+                </p>
+              </div>
 
-            {/* Player Count */}
-            <div className="text-white/70 mt-2">
-              ผู้เล่น {room.currentPlayers}/{room.maxPlayers}
+              {/* Player Count */}
+              <div className="bg-purple-500/20 border-purple-400/40 rounded-xl p-3 border">
+                <p className="text-xs text-white/60 mb-1">จำนวนผู้เล่น</p>
+                <p className="text-sm md:text-base font-semibold text-white">
+                  {room.currentPlayers}/{room.maxPlayers} คน
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Error Message */}
         {actionError && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 mb-6">
-            <p className="text-red-200 text-sm font-semibold">{actionError}</p>
+          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-3 md:p-4 mb-4 md:mb-6">
+            <p className="text-red-200 text-xs md:text-sm font-semibold">{actionError}</p>
           </div>
         )}
 
         {/* Players Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
-          <h2 className="text-2xl font-bold text-white mb-6">ผู้เล่น</h2>
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-8 mb-4 md:mb-6 border border-white/20">
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">ผู้เล่น</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {players.map((player, index) => (
@@ -358,20 +371,20 @@ export default function LobbyPage({ params }: LobbyPageProps) {
         </div>
 
         {/* Action Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-          <div className="space-y-4">
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-8 border border-white/20">
+          <div className="space-y-3 md:space-y-4">
             {isHost ? (
               // Host Actions
               <>
                 <button
                   onClick={handleStartGame}
                   disabled={!canStartGame || actionLoading}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none"
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none"
                 >
                   {actionLoading ? 'กำลังเริ่มเกม...' : 'เริ่มเกม'}
                 </button>
                 {!canStartGame && (
-                  <p className="text-center text-yellow-200 text-sm">
+                  <p className="text-center text-yellow-200 text-xs md:text-sm">
                     {room.currentPlayers < minPlayers
                       ? `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน`
                       : 'ผู้เล่นทุกคนต้องกด Ready ก่อน'}
@@ -387,7 +400,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                   currentPlayer?.isReady
                     ? 'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700'
                     : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                } disabled:opacity-50 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none`}
+                } disabled:opacity-50 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none`}
               >
                 {actionLoading ? 'กำลังโหลด...' : currentPlayer?.isReady ? 'ยกเลิก Ready' : 'Ready'}
               </button>
@@ -397,7 +410,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
             <button
               onClick={handleLeaveRoom}
               disabled={actionLoading}
-              className="w-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg font-bold py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-base md:text-lg font-bold py-2.5 md:py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {actionLoading ? 'กำลังออก...' : 'ออกจากห้อง'}
             </button>
