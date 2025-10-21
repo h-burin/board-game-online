@@ -5,6 +5,8 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
+
 type ItoPlayerAnswer = {
   playerId: string;
   playerName: string;
@@ -33,6 +35,17 @@ export default function RevealPhase({
   gameState,
   lastRevealResult,
 }: RevealPhaseProps) {
+  const [countdown, setCountdown] = useState(5);
+
+  // Countdown timer (5 วินาที)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   if (!lastRevealResult) {
     console.warn("⚠️ No reveal result");
     return null;
@@ -112,7 +125,7 @@ export default function RevealPhase({
         )}
 
         {revealedThisRound.length > 1 && (
-          <div className="text-white/50 text-sm text-center mt-3">
+          <div className="text-white/50 text-sm text-center mt-3 mb-3">
             (เปิดเลขสุดท้ายอัตโนมัติ)
           </div>
         )}
@@ -164,13 +177,18 @@ export default function RevealPhase({
         </div>
       </div>
 
-      {/* Auto-transition message */}
-      <div className="text-center mt-6 text-white/70">
-        {gameState.status === "won" || gameState.status === "lost" ? (
-          <p>กำลังสรุปผล...</p>
-        ) : (
-          <p>กำลังเตรียมรอบต่อไป...</p>
-        )}
+      {/* Auto-transition message with countdown */}
+      <div className="text-center mt-6">
+        <div className="text-5xl font-bold text-yellow-300 mb-3">
+          {countdown}
+        </div>
+        <div className="text-white/70">
+          {gameState.status === "won" || gameState.status === "lost" ? (
+            <p>กำลังสรุปผล...</p>
+          ) : (
+            <p>กำลังเตรียมรอบต่อไป...</p>
+          )}
+        </div>
       </div>
     </div>
   );
