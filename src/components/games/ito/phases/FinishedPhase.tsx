@@ -97,9 +97,9 @@ export default function FinishedPhase({
       </div>
 
       {/* Show all numbers (revealed + unrevealed) */}
-      <div className="mt-8 max-w-2xl mx-auto">
-        <h4 className="text-xl font-bold text-white mb-4">ตัวเลขทั้งหมด:</h4>
-        <div className="space-y-3">
+      <div className="mt-8 max-w-6xl mx-auto">
+        <h4 className="text-xl font-bold text-white mb-4 text-center">ตัวเลขทั้งหมด:</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* เลขที่เปิดแล้ว */}
           {playerAnswers
             .filter((a) => a.isRevealed)

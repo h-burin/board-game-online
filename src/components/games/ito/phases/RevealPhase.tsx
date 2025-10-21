@@ -47,7 +47,6 @@ export default function RevealPhase({
   }, []);
 
   if (!lastRevealResult) {
-    console.warn("⚠️ No reveal result");
     return null;
   }
 
@@ -58,7 +57,6 @@ export default function RevealPhase({
   );
 
   if (!votedAnswer) {
-    console.warn("⚠️ No voted answer found for number:", votedNumber);
     return null;
   }
 

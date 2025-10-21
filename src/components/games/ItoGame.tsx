@@ -76,9 +76,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     }
 
     if (prevLevelRef.current !== gameState.currentLevel) {
-      console.log(
-        `🔄 Level changed from ${prevLevelRef.current} to ${gameState.currentLevel}, clearing answers`
-      );
       setAnswers({});
       prevAnswersRef.current = "";
       prevLevelRef.current = gameState.currentLevel;
@@ -141,9 +138,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       answerIndex
     );
 
-    if (success) {
-      console.log("✅ Answer submitted successfully for index", answerIndex);
-    } else {
+    if (!success) {
       alert("เกิดข้อผิดพลาดในการส่งคำตอบ");
     }
     setSubmitting(false);
@@ -156,9 +151,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(true);
     const success = await unsendPlayerAnswer(sessionId, playerId, answerIndex);
 
-    if (success) {
-      console.log("✅ Answer unsent for editing at index", answerIndex);
-    } else {
+    if (!success) {
       alert("เกิดข้อผิดพลาดในการแก้ไขคำตอบ");
     }
     setSubmitting(false);
@@ -179,9 +172,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       answerIndex
     );
 
-    if (success) {
-      console.log("✅ Vote submitted successfully for:", selectedAnswerId);
-    } else {
+    if (!success) {
       alert("เกิดข้อผิดพลาดในการโหวต");
     }
     setSubmitting(false);
@@ -217,7 +208,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     const totalPlayers = uniquePlayerIds.length;
 
     if (voteCount === totalPlayers && voteCount > 0) {
-      console.log("✅ All votes submitted, revealing results");
       handleRevealVotes();
     }
   }, [voteCount, gameState, playerAnswers, revealing]);
@@ -227,7 +217,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     if (!gameState || revealing) return;
 
     if (timeLeft === 0 && gameState.phase === "voting" && voteCount > 0) {
-      console.log("⏰ Time is up, revealing results");
       handleRevealVotes();
     }
   }, [timeLeft, gameState, voteCount, revealing]);
@@ -270,8 +259,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
           newHearts: data.newHearts,
         });
       }
-    } catch (error) {
-      console.error("❌ Error revealing votes:", error);
+    } catch {
+      // Error handling
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
@@ -320,8 +309,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       const totalPlayers = uniquePlayerIds.length;
 
       if (readyCount === totalPlayers && totalPlayers > 0) {
-        console.log("✅ All players ready, starting next level");
-
         try {
           if (gameState.currentLevel >= gameState.totalLevels) {
             const sessionRef = doc(db, "game_sessions", sessionId);
@@ -340,13 +327,9 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             }
           );
 
-          const data = await response.json();
-
-          if (!data.success) {
-            console.error("❌ Failed to start next level:", data.error);
-          }
-        } catch (error) {
-          console.error("❌ Error starting next level:", error);
+          await response.json();
+        } catch {
+          // Error handling
         }
       }
     };

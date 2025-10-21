@@ -80,9 +80,7 @@ export default function LevelCompletePhase({
     const playerName = playerNames[playerId] || "Unknown";
     const success = await markPlayerReady(sessionId, playerId, playerName);
 
-    if (success) {
-      console.log("✅ Marked as ready");
-    } else {
+    if (!success) {
       alert("เกิดข้อผิดพลาดในการยืนยัน");
     }
     setSubmitting(false);
@@ -107,7 +105,7 @@ export default function LevelCompletePhase({
         <h4 className="text-white font-bold mb-4 text-center text-xl">
           ตัวเลขทั้งหมดในรอบนี้
         </h4>
-        <div className="space-y-3 max-h-96 overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
           {/* เลขที่เปิดแล้ว */}
           {revealedAnswers.map((ans, i) => (
             <div

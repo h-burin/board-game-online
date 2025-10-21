@@ -15,7 +15,6 @@ export async function POST(
   try {
     const { sessionId } = await context.params;
 
-    console.log('🎮 Starting next level for session:', sessionId);
 
     // 1. Get current game state
     const sessionRef = doc(db, 'game_sessions', sessionId);
@@ -29,16 +28,12 @@ export async function POST(
     }
 
     const gameState = sessionSnap.data();
-    console.log('Current level:', gameState.currentLevel);
-    console.log('Current hearts:', gameState.hearts);
-    console.log('Current phase:', gameState.phase);
 
     // คำนวณ level ถัดไป
     const nextLevel = gameState.currentLevel + 1;
 
     // Guard: ตรวจสอบว่าเกินจำนวน level แล้วหรือไม่
     if (nextLevel > 3) {
-      console.log('⚠️ All levels completed');
       return NextResponse.json(
         { success: false, error: 'All levels completed' },
         { status: 400 }
@@ -47,7 +42,6 @@ export async function POST(
 
     // Guard: ตรวจสอบว่า phase ถูกต้องหรือไม่ (ต้องเป็น levelComplete)
     if (gameState.phase !== 'levelComplete') {
-      console.log('⚠️ Cannot start next level, current phase:', gameState.phase);
       return NextResponse.json(
         { success: false, error: `Cannot start next level from phase: ${gameState.phase}` },
         { status: 400 }
@@ -69,7 +63,6 @@ export async function POST(
       }
     });
 
-    console.log('Players:', playerIds);
 
     // 3. Start next level
 
@@ -82,7 +75,6 @@ export async function POST(
     );
 
     if (success) {
-      console.log('✅ Successfully started level', nextLevel);
       return NextResponse.json({
         success: true,
         level: nextLevel
@@ -94,7 +86,6 @@ export async function POST(
       );
     }
   } catch (error) {
-    console.error('❌ Error starting next level:', error);
     return NextResponse.json(
       {
         success: false,
