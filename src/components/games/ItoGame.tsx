@@ -57,6 +57,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [revealing, setRevealing] = useState(false);
   const [lastRevealResult, setLastRevealResult] = useState<{
+    number: number;
     isCorrect: boolean;
     heartsLost: number;
     newHearts: number;
@@ -263,6 +264,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       if (data.success) {
         setLastRevealResult({
+          number: data.number,
           isCorrect: data.isCorrect,
           heartsLost: data.heartsLost,
           newHearts: data.newHearts,

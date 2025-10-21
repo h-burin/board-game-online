@@ -21,6 +21,7 @@ interface RevealPhaseProps {
     status: string;
   };
   lastRevealResult: {
+    number: number; // เลขที่โหวต
     isCorrect: boolean;
     heartsLost: number;
     newHearts: number;
@@ -32,27 +33,36 @@ export default function RevealPhase({
   gameState,
   lastRevealResult,
 }: RevealPhaseProps) {
-  // Find the last revealed player answer
-  const lastRevealedNumber =
-    gameState.revealedNumbers[gameState.revealedNumbers.length - 1];
-  const votedAnswer = playerAnswers.find(
-    (a) => a.isRevealed && a.number === lastRevealedNumber
-  );
-
-  if (!votedAnswer) {
-    console.warn("⚠️ No voted answer found for reveal phase");
+  if (!lastRevealResult) {
+    console.warn("⚠️ No reveal result");
     return null;
   }
 
-  const isCorrect = lastRevealResult?.isCorrect;
-  const heartsLost = lastRevealResult?.heartsLost ?? 0;
+  // ใช้เลขที่โหวตจริงๆ จาก API (ไม่ใช่ lastRevealedNumber)
+  const votedNumber = lastRevealResult.number;
+  const votedAnswer = playerAnswers.find(
+    (a) => a.number === votedNumber
+  );
 
-  // หาเลขทั้งหมดที่เปิดในรอบนี้
+  if (!votedAnswer) {
+    console.warn("⚠️ No voted answer found for number:", votedNumber);
+    return null;
+  }
+
+  const isCorrect = lastRevealResult.isCorrect;
+  const heartsLost = lastRevealResult.heartsLost;
+
+  // หาเลขทั้งหมดที่เปิดในรอบนี้ (เลขที่ <= เลขที่โหวต)
   const revealedThisRound = playerAnswers
-    .filter((a) => a.isRevealed && a.number <= lastRevealedNumber)
+    .filter((a) => a.isRevealed && a.number <= votedNumber)
     .map((a) => a.number)
     .filter((num, index, self) => self.indexOf(num) === index) // unique
     .sort((a, b) => a - b);
+
+  // หาเลขที่น้อยกว่าที่ถูกข้าม (เฉพาะเมื่อผิด)
+  const skippedNumbers = isCorrect === false
+    ? revealedThisRound.filter((num) => num < votedNumber)
+    : [];
 
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20 animate-fadeIn">
@@ -62,53 +72,50 @@ export default function RevealPhase({
 
       {/* Revealed Card */}
       <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-2xl p-8 mb-6 border-2 border-purple-400">
-        <div className="text-center mb-4">
-          <div className="text-white/70 mb-2">
-            คำใบ้ที่ได้รับโหวตมากสุด:
-          </div>
-          <div className="text-white text-2xl font-bold mb-2">
-            {votedAnswer.playerName}
-          </div>
-          <div className="text-white/90 text-xl italic mb-4">
-            &quot;{votedAnswer.answer}&quot;
+        {/* เลขที่ทีมโหวต - แสดงเด่นที่สุด */}
+        <div className="bg-white/30 rounded-2xl p-8 mb-4 border-2 border-yellow-400">
+          <div className="text-center">
+            <div className="text-white/90 text-lg mb-3 font-semibold">
+              🎯 ทีมโหวตเลข:
+            </div>
+            <div className="text-8xl font-bold text-yellow-300 mb-4 drop-shadow-[0_0_15px_rgba(253,224,71,0.5)]">
+              {votedAnswer.number}
+            </div>
+            <div className="text-white/70 text-sm mb-1">
+              คำใบ้ของ {votedAnswer.playerName}:
+            </div>
+            <div className="text-white text-lg italic">
+              &quot;{votedAnswer.answer}&quot;
+            </div>
           </div>
         </div>
 
-        {/* Number Reveal */}
-        <div className="bg-white/20 rounded-xl p-6 mb-4">
-          <div className="text-center">
-            <div className="text-white/70 mb-2">
-              {revealedThisRound.length > 1
-                ? "เปิดเลขทั้งหมด:"
-                : "หมายเลข:"}
-            </div>
-            {revealedThisRound.length > 1 ? (
-              <div className="flex flex-wrap justify-center gap-3">
-                {revealedThisRound.map((num, i) => (
+        {/* แสดงเลขที่ข้ามไป (ถ้ามี) */}
+        {skippedNumbers.length > 0 && (
+          <div className="bg-red-500/20 rounded-xl p-6 border-2 border-red-400/50">
+            <div className="text-center">
+              <div className="text-red-300 text-base mb-3 font-semibold">
+                ❌ แต่ข้ามเลขที่น้อยกว่าไปแล้ว:
+              </div>
+              <div className="flex flex-wrap justify-center gap-4">
+                {skippedNumbers.map((num, i) => (
                   <div
                     key={i}
-                    className={`text-5xl font-bold ${
-                      num === votedAnswer.number
-                        ? "text-yellow-300"
-                        : "text-yellow-300/60"
-                    }`}
+                    className="text-5xl font-bold text-red-300"
                   >
                     {num}
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-6xl font-bold text-yellow-300">
-                {votedAnswer.number}
-              </div>
-            )}
-            {revealedThisRound.length > 1 && (
-              <div className="text-white/50 text-sm mt-2">
-                (เปิดเลขสุดท้ายอัตโนมัติ)
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {revealedThisRound.length > 1 && (
+          <div className="text-white/50 text-sm text-center mt-3">
+            (เปิดเลขสุดท้ายอัตโนมัติ)
+          </div>
+        )}
 
         {/* Correct/Incorrect */}
         {isCorrect !== undefined && (

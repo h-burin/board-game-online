@@ -13,6 +13,7 @@ interface GameHeaderProps {
   phase: string;
   status: string;
   lastRevealResult?: {
+    number: number;
     isCorrect: boolean;
     heartsLost: number;
     newHearts: number;
