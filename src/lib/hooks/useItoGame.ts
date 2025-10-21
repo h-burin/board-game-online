@@ -69,7 +69,6 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
         setLoading(false);
       },
       (err) => {
-        console.error('Error listening to game state:', err);
         setError(err.message);
         setLoading(false);
       }
@@ -104,8 +103,8 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
 
         setPlayerAnswers(answers);
       },
-      (err) => {
-        console.error('Error listening to player answers:', err);
+      () => {
+        // Error handling for player answers listener
       }
     );
 

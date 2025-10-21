@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useItoGame } from "@/lib/hooks/useItoGame";
@@ -48,7 +48,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     sessionId,
     playerId
   );
-  const { votes, voteCount } = useVotes(sessionId);
+  const { votes, voteCount, loading: votesLoading } = useVotes(sessionId);
   const { readyPlayers, readyCount } = useReadyStatus(sessionId);
 
   const [answers, setAnswers] = useState<{ [answerIndex: number]: string }>({});
@@ -65,6 +65,10 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
   const prevAnswersRef = useRef<string>("");
   const prevLevelRef = useRef<number>(0);
+  const isInitialMount = useRef<boolean>(true);
+  const prevVoteCountRef = useRef<number>(0);
+  const hasLoadedVotesRef = useRef<boolean>(false);
+  const mountTimeRef = useRef<number>(Date.now());
 
   // Clear answers when level changes
   useEffect(() => {
@@ -178,69 +182,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(false);
   };
 
-  // Reset lastRevealResult when entering voting phase
-  useEffect(() => {
-    if (gameState?.phase === "voting") {
-      setLastRevealResult(null);
-    }
-  }, [gameState?.phase]);
-
-  // Restore vote selection if player already voted
-  useEffect(() => {
-    if (!gameState || gameState.phase !== "voting") return;
-    if (!votes || votes.length === 0) return;
-
-    const myVote = votes.find((v) => v.playerId === playerId);
-
-    if (myVote && !selectedAnswerId) {
-      const restoredAnswerId = `${myVote.votedForPlayerId}_${myVote.votedForAnswerIndex}`;
-      setSelectedAnswerId(restoredAnswerId);
-    }
-  }, [votes, gameState, playerId, selectedAnswerId]);
-
-  // Auto-check if all votes submitted
-  useEffect(() => {
-    if (!gameState || gameState.phase !== "voting" || revealing) return;
-
-    const uniquePlayerIds = Array.from(
-      new Set(playerAnswers.map((a) => a.playerId))
-    );
-    const totalPlayers = uniquePlayerIds.length;
-
-    if (voteCount === totalPlayers && voteCount > 0) {
-      handleRevealVotes();
-    }
-  }, [voteCount, gameState, playerAnswers, revealing]);
-
-  // Auto-reveal when time runs out
-  useEffect(() => {
-    if (!gameState || revealing) return;
-
-    if (timeLeft === 0 && gameState.phase === "voting" && voteCount > 0) {
-      handleRevealVotes();
-    }
-  }, [timeLeft, gameState, voteCount, revealing]);
-
-  // Count remaining time
-  useEffect(() => {
-    if (!gameState || !gameState.phaseEndTime) return;
-
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const end = gameState.phaseEndTime!.getTime();
-      const diff = Math.max(0, Math.floor((end - now) / 1000));
-      setTimeLeft(diff);
-
-      if (diff === 0) {
-        clearInterval(interval);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gameState?.phaseEndTime]);
-
   // Handle reveal votes
-  const handleRevealVotes = async () => {
+  const handleRevealVotes = useCallback(async () => {
     if (revealing) return;
 
     setRevealing(true);
@@ -264,7 +207,120 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
-  };
+  }, [revealing, sessionId]);
+
+  // Reset lastRevealResult when entering voting phase
+  useEffect(() => {
+    if (gameState?.phase === "voting") {
+      setLastRevealResult(null);
+      // Reset flag และ timer เมื่อเข้า voting phase ใหม่
+      isInitialMount.current = true;
+      prevVoteCountRef.current = 0;
+      hasLoadedVotesRef.current = false;
+      mountTimeRef.current = Date.now(); // Reset timer สำหรับ voting phase ใหม่
+    }
+  }, [gameState?.phase]);
+
+  // Restore vote selection if player already voted
+  useEffect(() => {
+    if (!gameState || gameState.phase !== "voting") return;
+    if (!votes || votes.length === 0) return;
+
+    const myVote = votes.find((v) => v.playerId === playerId);
+
+    if (myVote && !selectedAnswerId) {
+      const restoredAnswerId = `${myVote.votedForPlayerId}_${myVote.votedForAnswerIndex}`;
+      setSelectedAnswerId(restoredAnswerId);
+    }
+  }, [votes, gameState, playerId, selectedAnswerId]);
+
+  // Auto-check if all votes submitted
+  useEffect(() => {
+    if (!gameState || gameState.phase !== "voting" || revealing) return;
+
+    // ห้าม auto-reveal ถ้า votes ยังโหลดไม่เสร็จ (ป้องกัน F5)
+    if (votesLoading) return;
+
+    // ห้าม auto-reveal ภายใน 2 วินาทีหลัง mount (ป้องกัน F5)
+    const timeSinceMount = Date.now() - mountTimeRef.current;
+    if (timeSinceMount < 2000) return;
+
+    // เมื่อ votesLoading เปลี่ยนจาก true → false ครั้งแรก = initial load
+    if (!hasLoadedVotesRef.current) {
+      hasLoadedVotesRef.current = true;
+      prevVoteCountRef.current = voteCount;
+      return;
+    }
+
+    // ข้าม initial mount (ตอน refresh)
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      prevVoteCountRef.current = voteCount;
+      return;
+    }
+
+    // เช็คว่า voteCount เพิ่มขึ้นจริงๆ (มีคนโหวตเพิ่ม)
+    if (voteCount <= prevVoteCountRef.current) {
+      prevVoteCountRef.current = voteCount;
+      return;
+    }
+
+    prevVoteCountRef.current = voteCount;
+
+    const uniquePlayerIds = Array.from(
+      new Set(playerAnswers.map((a) => a.playerId))
+    );
+    const totalPlayers = uniquePlayerIds.length;
+    const expectedAnswers = gameState.currentLevel * totalPlayers;
+    const hasAllAnswers = playerAnswers.length === expectedAnswers;
+
+    if (
+      totalPlayers >= 2 &&
+      hasAllAnswers &&
+      voteCount === totalPlayers &&
+      voteCount > 0
+    ) {
+      handleRevealVotes();
+    }
+  }, [voteCount, gameState, playerAnswers, revealing, handleRevealVotes, votesLoading]);
+
+  // Auto-reveal when time runs out
+  useEffect(() => {
+    if (!gameState || revealing) return;
+
+    // ป้องกัน auto-reveal เมื่อเพิ่ง mount (ต้องรอให้ load เวลาจริงจาก Firebase ก่อน)
+    const timeSinceMount = Date.now() - mountTimeRef.current;
+    if (timeSinceMount < 2000) return;
+
+    // เมื่อหมดเวลา ต้องมีการโหวตอย่างน้อย 1 vote
+    // และต้องอยู่ใน voting phase จริงๆ
+    if (
+      timeLeft === 0 &&
+      gameState.phase === "voting" &&
+      voteCount > 0 &&
+      playerAnswers.length > 0
+    ) {
+      handleRevealVotes();
+    }
+  }, [timeLeft, gameState, voteCount, revealing, playerAnswers, handleRevealVotes]);
+
+  // Count remaining time
+  useEffect(() => {
+    if (!gameState || !gameState.phaseEndTime) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const end = gameState.phaseEndTime!.getTime();
+      const diff = Math.max(0, Math.floor((end - now) / 1000));
+      setTimeLeft(diff);
+
+      if (diff === 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [gameState?.phaseEndTime]);
 
   // Auto-transition from reveal phase
   useEffect(() => {
