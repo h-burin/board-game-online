@@ -95,33 +95,52 @@ export default function GamePage({ params }: GamePageProps) {
   // const currentPlayer = players.find(p => p.id === playerId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-4">
-      <div className="max-w-6xl mx-auto py-8">
-        {/* Game Header */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mb-6 border border-white/20">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-              {selectedGame?.name || room.gameType || 'เกม'}
-            </h1>
-            <div className="flex items-center justify-center gap-4 text-blue-200">
-              <div>
-                รหัสห้อง: <span className="font-bold text-white">{room.code.slice(0, 3)}-{room.code.slice(3)}</span>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-3 md:p-4">
+      <div className="max-w-6xl mx-auto py-3 md:py-8">
+        {/* Combined Game Header + Players List */}
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 mb-3 md:mb-6 border border-white/20">
+          {/* Game Header Section */}
+          <div className="bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl md:rounded-2xl p-4 md:p-6 mb-4 md:mb-6 border border-blue-400/30">
+            <div className="flex flex-row items-center justify-between gap-3 md:gap-4">
+              {/* Game Name */}
+              <div className="w-full md:w-auto">
+                <h1 className="text-xl md:text-3xl font-bold text-white">
+                  {selectedGame?.name || room.gameType || 'เกม'}
+                </h1>
+                <div className="flex flex-row items-center gap-2">
+                  <p className="text-xs md:text-base text-blue-200">รหัสห้อง:</p>
+                  <span className="font-bold text-yellow-200 text-base md:text-lg tracking-wider">
+                    {room.code.slice(0, 3)}-{room.code.slice(3)}
+                  </span>
+                </div>
               </div>
-              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <div>กำลังเล่น</div>
+
+              {/* Status Badge */}
+              <div className="bg-green-500/30 border-green-400/50 rounded-xl px-4 py-2 border backdrop-blur-sm">
+                <div className="text-xs md:text-sm text-white/80 font-semibold text-center whitespace-nowrap flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse block" />
+                  กำลังเล่น
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Players List */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20">
-          <h2 className="text-3xl font-bold text-white mb-6 text-center">ผู้เล่นทั้งหมด</h2>
+          {/* Players Section */}
+          <div className="flex items-center justify-between mb-3 md:mb-4">
+            <h2 className="text-base md:text-xl font-bold text-white">ผู้เล่นทั้งหมด</h2>
+            <span className="text-sm md:text-base text-white/70 font-semibold">
+              {players.length}
+              {selectedGame && (
+                <span className="text-xs md:text-base">/{selectedGame.maxPlayer}</span>
+              )} คน
+            </span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3">
             {players.map((player, index) => (
               <div
                 key={player.id}
-                className={`bg-white/10 rounded-2xl p-6 border-2 transition-all hover:scale-105 ${
+                className={`bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 border-2 transition-all hover:scale-105 ${
                   player.id === playerId
                     ? 'border-yellow-400 bg-yellow-500/20'
                     : 'border-white/20'
@@ -130,52 +149,42 @@ export default function GamePage({ params }: GamePageProps) {
               >
                 <div className="text-center">
                   {/* Player Number */}
-                  <div className="text-5xl font-bold text-white/30 mb-2">
+                  <div className="text-3xl md:text-5xl font-bold text-white/30 mb-1 md:mb-2">
                     #{index + 1}
                   </div>
 
                   {/* Player Name */}
-                  <div className="text-xl font-bold text-white mb-3">
+                  <div className="text-sm md:text-xl font-bold text-white mb-2 md:mb-3 truncate">
                     {player.name}
                   </div>
 
                   {/* Badges */}
-                  <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="flex flex-wrap gap-1 md:gap-2 justify-center">
                     {player.isHost && (
-                      <span className="bg-yellow-500/30 text-yellow-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span className="bg-yellow-500/30 text-yellow-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold">
                         Host
                       </span>
                     )}
                     {player.id === playerId && (
-                      <span className="bg-blue-500/30 text-blue-200 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span className="bg-blue-500/30 text-blue-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold">
                         คุณ
                       </span>
                     )}
                     {player.isOnline ? (
-                      <span className="bg-green-500/30 text-green-200 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-green-400" />
-                        Online
+                      <span className="bg-green-500/30 text-green-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-400" />
+                        <span className="hidden md:inline">Online</span>
                       </span>
                     ) : (
-                      <span className="bg-gray-500/30 text-gray-200 px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-gray-400" />
-                        Offline
+                      <span className="bg-gray-500/30 text-gray-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-gray-400" />
+                        <span className="hidden md:inline">Offline</span>
                       </span>
                     )}
                   </div>
                 </div>
               </div>
             ))}
-          </div>
-
-          {/* Player Count Summary */}
-          <div className="mt-8 text-center text-white/70 text-lg">
-            จำนวนผู้เล่น: <span className="font-bold text-white">{players.length}</span> คน
-            {selectedGame && (
-              <span className="ml-4">
-                ({selectedGame.minPlayer}-{selectedGame.maxPlayer} คน)
-              </span>
-            )}
           </div>
         </div>
 
