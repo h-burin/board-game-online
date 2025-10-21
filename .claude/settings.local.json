@@ -26,7 +26,10 @@
       "Bash(test -f /Users/burinsamphanwetsopha/Developer/board-game/README.md)",
       "Bash(ls -lh /Users/burinsamphanwetsopha/Developer/board-game/{README.md,CHANGES.md})",
       "Bash(python3 -m json.tool)",
-      "Bash(git checkout src/lib/firebase/ito.ts)"
+      "Bash(git checkout src/lib/firebase/ito.ts)",
+      "Bash(for file in PlayerStatusTracker MyNumbersDisplay GameHeader RevealedNumbersList)",
+      "Bash(do echo \"=== Checking $file ===\")",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

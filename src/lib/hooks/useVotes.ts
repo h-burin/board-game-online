@@ -44,8 +44,7 @@ export function useVotes(sessionId: string): UseVotesResult {
         setVotes(votesData);
         setLoading(false);
       },
-      (err) => {
-        console.error('Error listening to votes:', err);
+      () => {
         setLoading(false);
       }
     );

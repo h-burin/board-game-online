@@ -11,17 +11,14 @@ import type { ItoGameState, ItoPlayerAnswer } from '@/types/ito';
 interface UseItoGameResult {
   gameState: ItoGameState | null;
   playerAnswers: ItoPlayerAnswer[];
-  myAnswer: ItoPlayerAnswer | null;
-  myAnswers: ItoPlayerAnswer[]; // All answers for current player (for multi-number levels)
+  myAnswers: ItoPlayerAnswer[];
   loading: boolean;
-  error: string | null;
 }
 
 export function useItoGame(sessionId: string, playerId: string | null): UseItoGameResult {
   const [gameState, setGameState] = useState<ItoGameState | null>(null);
   const [playerAnswers, setPlayerAnswers] = useState<ItoPlayerAnswer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Subscribe to game state
   useEffect(() => {
@@ -62,14 +59,10 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
           };
 
           setGameState(state);
-          setError(null);
-        } else {
-          setError('ไม่พบ game session');
         }
         setLoading(false);
       },
-      (err) => {
-        setError(err.message);
+      () => {
         setLoading(false);
       }
     );
@@ -113,14 +106,11 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
 
   // Get my answers (all numbers for this player)
   const myAnswers = playerId ? playerAnswers.filter((a) => a.playerId === playerId) : [];
-  const myAnswer = myAnswers.length > 0 ? myAnswers[0] : null;
 
   return {
     gameState,
     playerAnswers,
-    myAnswer,
     myAnswers,
     loading,
-    error,
   };
 }

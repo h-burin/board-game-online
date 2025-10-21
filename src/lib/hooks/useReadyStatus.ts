@@ -43,8 +43,7 @@ export function useReadyStatus(sessionId: string): UseReadyStatusResult {
         setReadyPlayers(players);
         setLoading(false);
       },
-      (err) => {
-        console.error('Error listening to ready status:', err);
+      () => {
         setLoading(false);
       }
     );
