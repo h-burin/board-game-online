@@ -65,7 +65,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
   const prevAnswersRef = useRef<string>("");
   const prevLevelRef = useRef<number>(0);
-  const isInitialMount = useRef<boolean>(true);
   const prevVoteCountRef = useRef<number>(0);
   const hasLoadedVotesRef = useRef<boolean>(false);
   const mountTimeRef = useRef<number>(Date.now());
@@ -202,8 +201,8 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
           newHearts: data.newHearts,
         });
       }
-    } catch {
-      // Error handling
+    } catch (error) {
+      console.error('Reveal error:', error);
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
@@ -214,7 +213,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     if (gameState?.phase === "voting") {
       setLastRevealResult(null);
       // Reset flag และ timer เมื่อเข้า voting phase ใหม่
-      isInitialMount.current = true;
       prevVoteCountRef.current = 0;
       hasLoadedVotesRef.current = false;
       mountTimeRef.current = Date.now(); // Reset timer สำหรับ voting phase ใหม่
@@ -237,8 +235,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   // Auto-check if all votes submitted
   useEffect(() => {
     if (!gameState || gameState.phase !== "voting" || revealing) return;
-
-    // ห้าม auto-reveal ถ้า votes ยังโหลดไม่เสร็จ (ป้องกัน F5)
     if (votesLoading) return;
 
     // ห้าม auto-reveal ภายใน 2 วินาทีหลัง mount (ป้องกัน F5)
@@ -252,31 +248,40 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       return;
     }
 
-    // ข้าม initial mount (ตอน refresh)
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
+    // นับจำนวนผู้เล่นและคำตอบที่คาดหวัง
+    const uniquePlayerIds = Array.from(
+      new Set(playerAnswers.map((a) => a.playerId))
+    );
+    const totalPlayers = uniquePlayerIds.length;
+    const expectedAnswersPerPlayer = gameState.currentLevel;
+
+    // เช็คว่า voteCount เพิ่มขึ้นจริงๆ (มีคนโหวตเพิ่ม)
+    if (voteCount < prevVoteCountRef.current) {
       prevVoteCountRef.current = voteCount;
       return;
     }
 
-    // เช็คว่า voteCount เพิ่มขึ้นจริงๆ (มีคนโหวตเพิ่ม)
-    if (voteCount <= prevVoteCountRef.current) {
-      prevVoteCountRef.current = voteCount;
+    // ถ้า voteCount ไม่เปลี่ยน และยังไม่ครบทุกคน ให้ return
+    if (voteCount === prevVoteCountRef.current && voteCount < totalPlayers) {
       return;
     }
 
     prevVoteCountRef.current = voteCount;
 
-    const uniquePlayerIds = Array.from(
-      new Set(playerAnswers.map((a) => a.playerId))
-    );
-    const totalPlayers = uniquePlayerIds.length;
-    const expectedAnswers = gameState.currentLevel * totalPlayers;
-    const hasAllAnswers = playerAnswers.length === expectedAnswers;
+    // เช็คว่าแต่ละคนมีคำตอบที่ยังไม่เปิดอย่างน้อย 1 ตัว
+    const unrevealedAnswers = playerAnswers.filter(a => !a.isRevealed);
+    const hasUnrevealedAnswersToVote = unrevealedAnswers.length > 0;
+
+    // เช็คว่าทุกคนมีคำตอบครบสำหรับ level นี้ (นับรวมที่เปิดแล้ว)
+    const allPlayersHaveAllAnswers = uniquePlayerIds.every(playerId => {
+      const playerTotalAnswers = playerAnswers.filter(a => a.playerId === playerId);
+      return playerTotalAnswers.length === expectedAnswersPerPlayer;
+    });
 
     if (
       totalPlayers >= 2 &&
-      hasAllAnswers &&
+      hasUnrevealedAnswersToVote &&
+      allPlayersHaveAllAnswers &&
       voteCount === totalPlayers &&
       voteCount > 0
     ) {
@@ -292,8 +297,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     const timeSinceMount = Date.now() - mountTimeRef.current;
     if (timeSinceMount < 2000) return;
 
-    // เมื่อหมดเวลา ต้องมีการโหวตอย่างน้อย 1 vote
-    // และต้องอยู่ใน voting phase จริงๆ
+    // เมื่อหมดเวลา ต้องมีการโหวตอย่างน้อย 1 vote และต้องอยู่ใน voting phase จริงๆ
     if (
       timeLeft === 0 &&
       gameState.phase === "voting" &&

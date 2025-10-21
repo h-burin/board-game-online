@@ -76,10 +76,16 @@ export default function RevealPhase({
     : [];
 
   return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 animate-fadeIn">
-      <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
-        ผลการโหวต
-      </h3>
+    <>
+      {/* Backdrop Overlay */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fadeIn" />
+
+      {/* Popup Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
+            ผลการโหวต
+          </h3>
 
       {/* Revealed Card */}
       <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 mb-4 md:mb-6 border-2 border-purple-400">
@@ -188,6 +194,8 @@ export default function RevealPhase({
           )}
         </div>
       </div>
-    </div>
+        </div>
+      </div>
+    </>
   );
 }
