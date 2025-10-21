@@ -230,6 +230,17 @@ export default function JoinRoomPage() {
 
             {/* Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+               {/* Back Button - col-6 */}
+               <Link href="/" className="block w-full">
+                <button
+                  type="button"
+                  className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
+                >
+                  กลับหน้าหลัก
+                </button>
+              </Link>
+
               {/* Submit Button - col-6 */}
               <button
                 type="submit"
@@ -264,16 +275,7 @@ export default function JoinRoomPage() {
                   "เข้าห้อง"
                 )}
               </button>
-
-              {/* Back Button - col-6 */}
-              <Link href="/" className="block w-full">
-                <button
-                  type="button"
-                  className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
-                >
-                  กลับหน้าหลัก
-                </button>
-              </Link>
+     
             </div>
           </form>
 

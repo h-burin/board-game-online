@@ -205,7 +205,9 @@ export default function CreateRoomPage() {
               />
               <div className="flex justify-between mt-2">
                 {errors.playerName && (
-                  <p className="text-red-400 text-xs md:text-sm">{errors.playerName}</p>
+                  <p className="text-red-400 text-xs md:text-sm">
+                    {errors.playerName}
+                  </p>
                 )}
                 <p className="text-white/60 text-xs md:text-sm ml-auto">
                   {formData.playerName.length}/20
@@ -274,7 +276,9 @@ export default function CreateRoomPage() {
                 </select>
               )}
               {errors.gameId && (
-                <p className="text-red-400 text-xs md:text-sm mt-2">{errors.gameId}</p>
+                <p className="text-red-400 text-xs md:text-sm mt-2">
+                  {errors.gameId}
+                </p>
               )}
             </div>
 
@@ -327,6 +331,15 @@ export default function CreateRoomPage() {
 
             {/* Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Back Button - col-6 */}
+              <button
+                type="button"
+                onClick={() => (window.location.href = "/")}
+                className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
+              >
+                กลับหน้าหลัก
+              </button>
+
               {/* Submit Button - col-6 */}
               <button
                 type="submit"
@@ -366,15 +379,6 @@ export default function CreateRoomPage() {
                 ) : (
                   "สร้างห้อง"
                 )}
-              </button>
-
-              {/* Back Button - col-6 */}
-              <button
-                type="button"
-                onClick={() => (window.location.href = "/")}
-                className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
-              >
-                กลับหน้าหลัก
               </button>
             </div>
           </form>

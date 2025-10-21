@@ -52,6 +52,7 @@ export async function getRandomQuestion(): Promise<ItoQuestion | null> {
 
 /**
  * สุ่มเลขให้ผู้เล่น (1-100) แต่ละคนไม่ซ้ำกัน
+ * แบบกระจายเลขให้เท่าๆ กัน (ไม่ให้คนเดียวได้เลขใกล้ๆ กัน)
  * @param playerCount จำนวนผู้เล่น
  * @param numbersPerPlayer จำนวนเลขต่อคน (1, 2, หรือ 3)
  * @returns array ของเลขที่ไม่ซ้ำกัน (จำนวน = playerCount * numbersPerPlayer)
@@ -64,25 +65,48 @@ export function generateUniqueNumbers(playerCount: number, numbersPerPlayer: num
     throw new Error(`ต้องการ ${totalNumbers} เลข แต่มีแค่ 1-100 (100 เลข)`);
   }
 
-  const numbers = new Set<number>();
+  // สุ่มเลขที่ไม่ซ้ำกัน
+  const numbers: number[] = [];
 
-  while (numbers.size < totalNumbers) {
+  while (numbers.length < totalNumbers) {
     const randomNum = Math.floor(Math.random() * 100) + 1; // 1-100
-    numbers.add(randomNum);
+
+    // ถ้าเลขนี้ยังไม่มีใน array ให้เพิ่มเข้าไป
+    if (!numbers.includes(randomNum)) {
+      numbers.push(randomNum);
+    }
   }
 
-  const result = Array.from(numbers);
+  // สุ่มเรียงเลขใหม่อีกครั้งก่อนแจก (Fisher-Yates shuffle)
+  const shuffledNumbers = [...numbers];
+  for (let i = shuffledNumbers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledNumbers[i], shuffledNumbers[j]] = [shuffledNumbers[j], shuffledNumbers[i]];
+  }
 
-  // Debug: แสดงเลขที่สุ่มได้
-  console.log('🎲 Generated unique numbers:', {
+  // Debug: แสดงการแจกเลข
+  const distribution = Array.from({ length: playerCount }, (_, playerIndex) => {
+    const playerNumbers = [];
+    for (let round = 0; round < numbersPerPlayer; round++) {
+      const index = round * playerCount + playerIndex;
+      playerNumbers.push(shuffledNumbers[index]);
+    }
+    return {
+      player: playerIndex + 1,
+      numbers: playerNumbers.sort((a, b) => a - b),
+    };
+  });
+
+  console.log('🎲 Number Distribution:', {
     playerCount,
     numbersPerPlayer,
     totalNumbers,
-    numbers: result.sort((a, b) => a - b),
-    hasDuplicates: result.length !== new Set(result).size,
+    generatedNumbers: numbers.sort((a, b) => a - b),
+    shuffledNumbers,
+    distribution,
   });
 
-  return result;
+  return shuffledNumbers;
 }
 
 /**
