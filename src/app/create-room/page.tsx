@@ -163,13 +163,13 @@ export default function CreateRoomPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Form Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 md:p-12 border border-white/20">
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-12 border border-white/20">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+          <div className="text-center mb-6 md:mb-8">
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">
               สร้างห้องเกม
             </h1>
-            <p className="text-lg text-green-200">
+            <p className="text-base md:text-lg text-green-200">
               เริ่มต้นเกมใหม่และเชิญเพื่อนๆ มาเล่น
             </p>
           </div>
@@ -182,12 +182,12 @@ export default function CreateRoomPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Player Name Input */}
             <div>
               <label
                 htmlFor="playerName"
-                className="block text-white text-lg font-semibold mb-2"
+                className="block text-white text-base md:text-lg font-semibold mb-2"
               >
                 ชื่อผู้เล่น <span className="text-red-400">*</span>
               </label>
@@ -205,9 +205,9 @@ export default function CreateRoomPage() {
               />
               <div className="flex justify-between mt-2">
                 {errors.playerName && (
-                  <p className="text-red-400 text-sm">{errors.playerName}</p>
+                  <p className="text-red-400 text-xs md:text-sm">{errors.playerName}</p>
                 )}
-                <p className="text-white/60 text-sm ml-auto">
+                <p className="text-white/60 text-xs md:text-sm ml-auto">
                   {formData.playerName.length}/20
                 </p>
               </div>
@@ -217,7 +217,7 @@ export default function CreateRoomPage() {
             <div>
               <label
                 htmlFor="gameId"
-                className="block text-white text-lg font-semibold mb-2"
+                className="block text-white text-base md:text-lg font-semibold mb-2"
               >
                 เลือกเกม <span className="text-red-400">*</span>
               </label>
@@ -274,7 +274,7 @@ export default function CreateRoomPage() {
                 </select>
               )}
               {errors.gameId && (
-                <p className="text-red-400 text-sm mt-2">{errors.gameId}</p>
+                <p className="text-red-400 text-xs md:text-sm mt-2">{errors.gameId}</p>
               )}
             </div>
 
@@ -282,7 +282,7 @@ export default function CreateRoomPage() {
             <div>
               <label
                 htmlFor="maxPlayers"
-                className="block text-white text-lg font-semibold mb-2"
+                className="block text-white text-base md:text-lg font-semibold mb-2"
               >
                 จำนวนผู้เล่นสูงสุด
               </label>
@@ -337,7 +337,7 @@ export default function CreateRoomPage() {
                   !formData.gameId ||
                   isLoading
                 }
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none flex items-center justify-center gap-3"
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none flex items-center justify-center gap-3"
               >
                 {isLoading ? (
                   <>
@@ -372,7 +372,7 @@ export default function CreateRoomPage() {
               <button
                 type="button"
                 onClick={() => (window.location.href = "/")}
-                className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-xl font-bold py-4 rounded-xl transition-all"
+                className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
               >
                 กลับหน้าหลัก
               </button>
@@ -380,8 +380,8 @@ export default function CreateRoomPage() {
           </form>
 
           {/* Info Box */}
-          <div className="mt-8 bg-green-500/20 border border-green-400/30 rounded-xl p-4">
-            <div className="text-sm text-green-100 text-center">
+          <div className="mt-6 md:mt-8 bg-green-500/20 border border-green-400/30 rounded-xl p-3 md:p-4">
+            <div className="text-xs md:text-sm text-green-100 text-center">
               <span className="font-semibold">เคล็ดลับ: </span>
               หลังจากสร้างห้องแล้ว คุณจะได้รับรหัสห้อง 6 หลักเพื่อแชร์ให้เพื่อนๆ
               เข้าร่วม

@@ -153,13 +153,13 @@ export default function JoinRoomPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-cyan-900 to-teal-900 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full">
         {/* Form Card */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 md:p-12 border border-white/20">
+        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 md:p-12 border border-white/20">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+          <div className="text-center mb-6 md:mb-8">
+            <h1 className="text-3xl md:text-5xl font-bold text-white mb-2">
               เข้าร่วมห้อง
             </h1>
-            <p className="text-lg text-blue-200">ใส่รหัสห้องเพื่อเข้าร่วมเกม</p>
+            <p className="text-base md:text-lg text-blue-200">ใส่รหัสห้องเพื่อเข้าร่วมเกม</p>
           </div>
 
           {/* API Error Message */}
@@ -170,12 +170,12 @@ export default function JoinRoomPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Room Code Input */}
             <div>
               <label
                 htmlFor="roomCode"
-                className="block text-white text-lg font-semibold mb-3 text-center"
+                className="block text-white text-base md:text-lg font-semibold mb-2 md:mb-3 text-center"
               >
                 รหัสห้อง <span className="text-red-400">*</span>
               </label>
@@ -187,13 +187,13 @@ export default function JoinRoomPage() {
                 placeholder="000-000"
                 inputMode="numeric"
                 disabled={isLoading}
-                className={`w-full px-6 py-6 rounded-2xl bg-white/20 border-2 ${
+                className={`w-full px-4 md:px-6 py-4 md:py-6 rounded-2xl bg-white/20 border-2 ${
                   errors.roomCode ? "border-red-500" : "border-white/30"
-                } text-white text-center text-4xl font-bold placeholder-white/30 focus:outline-none focus:border-blue-400 transition-colors tracking-widest disabled:opacity-50 disabled:cursor-not-allowed`}
+                } text-white text-center text-3xl md:text-4xl font-bold placeholder-white/30 focus:outline-none focus:border-blue-400 transition-colors tracking-widest disabled:opacity-50 disabled:cursor-not-allowed`}
               />
-              <div className="mt-3 text-center">
+              <div className="mt-2 md:mt-3 text-center">
                 {errors.roomCode && (
-                  <p className="text-red-400 text-sm">{errors.roomCode}</p>
+                  <p className="text-red-400 text-xs md:text-sm">{errors.roomCode}</p>
                 )}
               </div>
             </div>
@@ -202,7 +202,7 @@ export default function JoinRoomPage() {
             <div>
               <label
                 htmlFor="playerName"
-                className="block text-white text-lg font-semibold mb-2"
+                className="block text-white text-base md:text-lg font-semibold mb-2"
               >
                 ชื่อผู้เล่น <span className="text-red-400">*</span>
               </label>
@@ -220,9 +220,9 @@ export default function JoinRoomPage() {
               />
               <div className="flex justify-between mt-2">
                 {errors.playerName && (
-                  <p className="text-red-400 text-sm">{errors.playerName}</p>
+                  <p className="text-red-400 text-xs md:text-sm">{errors.playerName}</p>
                 )}
-                <p className="text-white/60 text-sm ml-auto">
+                <p className="text-white/60 text-xs md:text-sm ml-auto">
                   {formData.playerName.length}/20
                 </p>
               </div>
@@ -234,7 +234,7 @@ export default function JoinRoomPage() {
               <button
                 type="submit"
                 disabled={!isFormValid || isLoading}
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-xl font-bold py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none flex items-center justify-center gap-3"
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 hover:shadow-2xl disabled:transform-none disabled:shadow-none flex items-center justify-center gap-3"
               >
                 {isLoading ? (
                   <>
@@ -269,7 +269,7 @@ export default function JoinRoomPage() {
               <Link href="/" className="block w-full">
                 <button
                   type="button"
-                  className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-xl font-bold py-4 rounded-xl transition-all"
+                  className="w-full h-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-red-200 text-lg md:text-xl font-bold py-3 md:py-4 rounded-xl transition-all"
                 >
                   กลับหน้าหลัก
                 </button>
@@ -278,8 +278,8 @@ export default function JoinRoomPage() {
           </form>
 
           {/* Info Box */}
-          <div className="mt-8 bg-blue-500/20 border border-blue-400/30 rounded-xl p-4">
-            <div className="text-sm text-blue-100 text-center">
+          <div className="mt-6 md:mt-8 bg-blue-500/20 border border-blue-400/30 rounded-xl p-3 md:p-4">
+            <div className="text-xs md:text-sm text-blue-100 text-center">
               <span className="font-semibold mb-1">คำแนะนำ:</span>{" "}
               รหัสห้องเป็นตัวเลข 6 หลักที่ได้รับจากผู้สร้างห้อง
             </div>
