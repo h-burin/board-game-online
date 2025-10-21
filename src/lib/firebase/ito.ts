@@ -870,7 +870,7 @@ export async function revealAndCheck(
 
     // ตรวจสอบว่าเกมทั้งหมดจบหรือไม่
     // เปลี่ยนเป็น reveal เสมอ แล้วให้ frontend auto-transition
-    let newPhase: 'reveal' | 'levelComplete' | 'finished' = 'reveal';
+    const newPhase: 'reveal' | 'levelComplete' | 'finished' = 'reveal';
     let newStatus: 'playing' | 'won' | 'lost' = 'playing';
 
     if (newHearts === 0) {
