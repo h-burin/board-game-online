@@ -76,19 +76,13 @@ export default function RevealPhase({
     : [];
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <>
       {/* Backdrop Overlay */}
-      <div
-        className="fixed inset-0 bg-black/70 animate-fadeIn"
-        style={{
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)'
-        }}
-      />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fadeIn" />
 
-      {/* Popup Modal - using flex centering */}
-      <div className="min-h-full flex items-center justify-center p-4">
-        <div className="relative bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-indigo-900/95 rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 max-w-2xl w-full my-8 animate-fadeIn">
+      {/* Popup Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
             ผลการโหวต
           </h3>
@@ -202,6 +196,6 @@ export default function RevealPhase({
       </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
