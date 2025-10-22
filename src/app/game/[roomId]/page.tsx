@@ -4,15 +4,15 @@
  * Dynamic route: /game/[roomId]
  */
 
-'use client';
+"use client";
 
-import { use, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useRoom } from '@/lib/hooks/useRoom';
-import { usePlayers } from '@/lib/hooks/usePlayers';
-import { useGames } from '@/lib/hooks/useGames';
-import ItoGame from '@/components/games/ItoGame';
+import { use, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRoom } from "@/lib/hooks/useRoom";
+import { usePlayers } from "@/lib/hooks/usePlayers";
+import { useGames } from "@/lib/hooks/useGames";
+import ItoGame from "@/components/games/ItoGame";
 
 interface GamePageProps {
   params: Promise<{
@@ -27,7 +27,11 @@ export default function GamePage({ params }: GamePageProps) {
   const { roomId } = use(params);
 
   const { room, loading: roomLoading, error: roomError } = useRoom(roomId);
-  const { players, loading: playersLoading, error: playersError } = usePlayers(roomId);
+  const {
+    players,
+    loading: playersLoading,
+    error: playersError,
+  } = usePlayers(roomId);
   const { games } = useGames();
 
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -35,7 +39,7 @@ export default function GamePage({ params }: GamePageProps) {
   // Get playerId from localStorage
   useEffect(() => {
     const id = localStorage.getItem(`room_${roomId}_playerId`);
-    console.log('🎮 Game page - Reading playerId from localStorage:', {
+    console.log("🎮 Game page - Reading playerId from localStorage:", {
       roomId,
       playerId: id,
     });
@@ -44,8 +48,8 @@ export default function GamePage({ params }: GamePageProps) {
 
   // Redirect back to lobby if game is not in 'playing' status
   useEffect(() => {
-    if (room && room.status !== 'playing') {
-      console.log('⚠️ Game not started yet, redirecting to lobby');
+    if (room && room.status !== "playing") {
+      console.log("⚠️ Game not started yet, redirecting to lobby");
       router.push(`/lobby/${roomId}`);
     }
   }, [room, roomId, router]);
@@ -53,19 +57,19 @@ export default function GamePage({ params }: GamePageProps) {
   // Check if player is still in the room
   useEffect(() => {
     if (!playersLoading && playerId) {
-      const playerExists = players.some(p => p.id === playerId);
+      const playerExists = players.some((p) => p.id === playerId);
 
       if (!playerExists && players.length > 0) {
-        console.log('⚠️ Player not found in room');
-        alert('คุณไม่อยู่ในห้องนี้แล้ว');
+        console.log("⚠️ Player not found in room");
+        alert("คุณไม่อยู่ในห้องนี้แล้ว");
         localStorage.removeItem(`room_${roomId}_playerId`);
-        router.push('/');
+        router.push("/");
       }
     }
   }, [playerId, players, playersLoading, roomId, router]);
 
   // Get selected game details
-  const selectedGame = games.find(g => g.id === room?.gameId);
+  const selectedGame = games.find((g) => g.id === room?.gameId);
 
   // Loading state
   if (roomLoading || playersLoading) {
@@ -82,7 +86,9 @@ export default function GamePage({ params }: GamePageProps) {
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
         <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 max-w-md w-full text-center">
           <h1 className="text-2xl font-bold text-white mb-4">เกิดข้อผิดพลาด</h1>
-          <p className="text-red-300 mb-6">{roomError || playersError || 'ไม่พบห้อง'}</p>
+          <p className="text-red-300 mb-6">
+            {roomError || playersError || "ไม่พบห้อง"}
+          </p>
           <Link href="/" className="text-blue-300 hover:text-blue-200">
             กลับหน้าหลัก
           </Link>
@@ -105,10 +111,12 @@ export default function GamePage({ params }: GamePageProps) {
               {/* Game Name */}
               <div className="w-full md:w-auto">
                 <h1 className="text-xl md:text-3xl font-bold text-white">
-                  {selectedGame?.name || room.gameType || 'เกม'}
+                  {selectedGame?.name || room.gameType || "เกม"}
                 </h1>
                 <div className="flex flex-row items-center gap-2">
-                  <p className="text-xs md:text-base text-blue-200">รหัสห้อง:</p>
+                  <p className="text-xs md:text-base text-blue-200">
+                    รหัสห้อง:
+                  </p>
                   <span className="font-bold text-yellow-200 text-base md:text-lg tracking-wider">
                     {room.code.slice(0, 3)}-{room.code.slice(3)}
                   </span>
@@ -127,12 +135,17 @@ export default function GamePage({ params }: GamePageProps) {
 
           {/* Players Section */}
           <div className="flex items-center justify-between mb-3 md:mb-4">
-            <h2 className="text-base md:text-xl font-bold text-white">ผู้เล่นทั้งหมด</h2>
+            <h2 className="text-base md:text-xl font-bold text-white">
+              ผู้เล่นทั้งหมด
+            </h2>
             <span className="text-sm md:text-base text-white/70 font-semibold">
               {players.length}
               {selectedGame && (
-                <span className="text-xs md:text-base">/{selectedGame.maxPlayer}</span>
-              )} คน
+                <span className="text-xs md:text-base">
+                  /{selectedGame.maxPlayer}
+                </span>
+              )}{" "}
+              คน
             </span>
           </div>
 
@@ -142,8 +155,8 @@ export default function GamePage({ params }: GamePageProps) {
                 key={player.id}
                 className={`bg-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 border-2 transition-all hover:scale-105 ${
                   player.id === playerId
-                    ? 'border-yellow-400 bg-yellow-500/20'
-                    : 'border-white/20'
+                    ? "border-yellow-400 bg-yellow-500/20"
+                    : "border-white/20"
                 } animate-fadeIn`}
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
@@ -173,12 +186,12 @@ export default function GamePage({ params }: GamePageProps) {
                     {player.isOnline ? (
                       <span className="bg-green-500/30 text-green-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1">
                         <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-400" />
-                        <span className="hidden md:inline">Online</span>
+                        <span>Online</span>
                       </span>
                     ) : (
                       <span className="bg-gray-500/30 text-gray-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold flex items-center gap-1">
                         <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-gray-400" />
-                        <span className="hidden md:inline">Offline</span>
+                        <span>Offline</span>
                       </span>
                     )}
                   </div>
@@ -189,7 +202,9 @@ export default function GamePage({ params }: GamePageProps) {
         </div>
 
         {/* Game Content */}
-        {room.gameId === 'BWLxJkh45e6RiALRBmcl' && playerId && room.gameSessionId ? (
+        {room.gameId === "BWLxJkh45e6RiALRBmcl" &&
+        playerId &&
+        room.gameSessionId ? (
           <ItoGame sessionId={room.gameSessionId} playerId={playerId} />
         ) : (
           <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-8 mt-6 border border-white/20">

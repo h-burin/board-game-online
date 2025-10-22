@@ -6,6 +6,7 @@ import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { ItoQuestion } from '@/types/ito';
+import { useAdminActivity } from '@/lib/hooks/useAdminActivity';
 
 export default function AdminQuestionsPage() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function AdminQuestionsPage() {
   const [editingQuestion, setEditingQuestion] = useState<ItoQuestion | null>(null);
   const [questionText, setQuestionText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Track admin activity and auto-logout after 8 hours of inactivity
+  useAdminActivity();
 
   // Check authentication
   useEffect(() => {
@@ -153,8 +157,8 @@ export default function AdminQuestionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">กำลังโหลด...</div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-900 text-xl">กำลังโหลด...</div>
       </div>
     );
   }
@@ -164,131 +168,178 @@ export default function AdminQuestionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-6 border border-white/20 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2">จัดการโจทย์เกม ITO</h1>
-              <p className="text-white/70">Logged in as: {user.email}</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center min-w-0 flex-1">
+              <button
+                onClick={() => router.push('/admin')}
+                className="mr-2 sm:mr-4 text-gray-600 hover:text-gray-900 inline-flex items-center flex-shrink-0"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+              <div className="w-8 h-8 bg-slate-700 rounded flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h1 className="ml-2 sm:ml-3 text-sm sm:text-xl font-semibold text-gray-900 truncate">
+                <span className="hidden sm:inline">จัดการโจทย์เกม ITO</span>
+                <span className="sm:hidden">โจทย์ ITO</span>
+              </h1>
             </div>
-            <div className="flex gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="hidden md:inline text-sm text-gray-600 truncate max-w-[150px]">{user.email}</span>
               <button
                 onClick={() => router.push('/')}
-                className="px-6 py-3 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold transition-colors"
+                className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
-                ← หน้าหลัก
+                <span className="hidden sm:inline">หน้าหลัก</span>
+                <span className="sm:hidden">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </span>
               </button>
               <button
                 onClick={handleLogout}
-                className="px-6 py-3 rounded-xl bg-red-500/50 hover:bg-red-500/70 text-white font-bold transition-colors"
+                className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
-                ออกจากระบบ
+                <span className="hidden sm:inline">ออกจากระบบ</span>
+                <span className="sm:hidden">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                </span>
               </button>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Add Button */}
-        <div className="mb-6 flex justify-end">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Page Header with Add Button */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">โจทย์ทั้งหมด</h2>
+            <p className="text-xs sm:text-sm text-gray-600">จำนวน {questions.length} โจทย์</p>
+          </div>
           <button
             onClick={handleAdd}
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold transition-all transform hover:scale-105"
+            className="px-3 sm:px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-colors inline-flex items-center justify-center gap-2 text-sm sm:text-base"
           >
-            + เพิ่มโจทย์ใหม่
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            เพิ่มโจทย์ใหม่
           </button>
         </div>
 
         {/* Questions Table */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-white/10 border-b border-white/20">
-                <th className="px-6 py-4 text-left text-white font-bold">#</th>
-                <th className="px-6 py-4 text-left text-white font-bold">โจทย์</th>
-                <th className="px-6 py-4 text-right text-white font-bold">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questions.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-white/70">
-                    ยังไม่มีโจทย์ กรุณาเพิ่มโจทย์ใหม่
-                  </td>
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-12 sm:w-20">#</th>
+                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">โจทย์</th>
+                  <th className="px-3 sm:px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">จัดการ</th>
                 </tr>
-              ) : (
-                questions.map((question, index) => (
-                  <tr key={question.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4 text-white/70">{index + 1}</td>
-                    <td className="px-6 py-4 text-white">{question.questionsTH}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => handleEdit(question)}
-                        className="px-4 py-2 rounded-lg bg-blue-500/50 hover:bg-blue-500/70 text-white font-bold mr-2 transition-colors"
-                      >
-                        ✏️ แก้ไข
-                      </button>
-                      <button
-                        onClick={() => handleDelete(question)}
-                        className="px-4 py-2 rounded-lg bg-red-500/50 hover:bg-red-500/70 text-white font-bold transition-colors"
-                      >
-                        ❌ ลบ
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {questions.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="px-4 sm:px-6 py-8 sm:py-12 text-center">
+                      <svg className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-gray-600 text-sm sm:text-base">ยังไม่มีโจทย์</p>
+                      <p className="text-gray-500 text-xs sm:text-sm mt-1">คลิกปุ่ม "เพิ่มโจทย์ใหม่" เพื่อเริ่มต้น</p>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  questions.map((question, index) => (
+                    <tr key={question.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">{index + 1}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900">{question.questionsTH}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                        <div className="flex justify-end gap-1 sm:gap-2">
+                          <button
+                            onClick={() => handleEdit(question)}
+                            className="px-2 sm:px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span className="hidden sm:inline">แก้ไข</span>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(question)}
+                            className="px-2 sm:px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-xs sm:text-sm font-medium transition-colors inline-flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span className="hidden sm:inline">ลบ</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+      </div>
 
-        {/* Total count */}
-        <div className="mt-4 text-right text-white/70">
-          ทั้งหมด {questions.length} โจทย์
-        </div>
-
-        {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-900 rounded-3xl shadow-2xl p-8 border border-white/20 max-w-lg w-full">
-              <h2 className="text-2xl font-bold text-white mb-6">
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4">
+            <div className="p-4 sm:p-6">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
                 {editingQuestion ? 'แก้ไขโจทย์' : 'เพิ่มโจทย์ใหม่'}
               </h2>
 
-              <div className="mb-6">
-                <label className="block text-white text-sm font-semibold mb-2">
+              <div className="mb-5 sm:mb-6">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
                   โจทย์ (ภาษาไทย)
                 </label>
                 <textarea
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
                   placeholder="เช่น ความสูง (เซนติเมตร)"
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-blue-400 transition-colors resize-none"
+                  className="w-full px-3 sm:px-4 py-2.5 rounded-lg border border-gray-300 text-gray-900 text-sm sm:text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent transition-all resize-none"
                   rows={3}
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   onClick={() => setShowModal(false)}
                   disabled={submitting}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gray-500/50 hover:bg-gray-500/70 disabled:opacity-50 text-white font-bold transition-colors"
+                  className="flex-1 px-3 sm:px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm sm:text-base font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   ยกเลิก
                 </button>
                 <button
                   onClick={handleSave}
                   disabled={submitting}
-                  className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 text-white font-bold transition-all"
+                  className="flex-1 px-3 sm:px-4 py-2.5 rounded-lg bg-slate-700 hover:bg-slate-800 disabled:bg-gray-400 text-white text-sm sm:text-base font-semibold transition-colors disabled:cursor-not-allowed"
                 >
                   {submitting ? 'กำลังบันทึก...' : 'บันทึก'}
                 </button>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
