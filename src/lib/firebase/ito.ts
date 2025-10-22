@@ -176,6 +176,7 @@ export async function startNextLevel(
       phase: 'voting',
       phaseEndTime: Timestamp.fromDate(phaseEndTime),
       revealedNumbers: [],
+      lastRevealResult: null, // Clear lastRevealResult เมื่อเริ่ม level ใหม่
       updatedAt: serverTimestamp(),
     });
 
@@ -578,6 +579,7 @@ export async function startVotingPhase(sessionId: string): Promise<boolean> {
     await updateDoc(sessionRef, {
       phase: 'voting',
       phaseEndTime: Timestamp.fromDate(phaseEndTime),
+      lastRevealResult: null, // Clear lastRevealResult เมื่อเข้า voting phase ใหม่
       updatedAt: serverTimestamp(),
     });
 
@@ -948,13 +950,19 @@ export async function revealAndCheck(
       }
     }
 
-    // อัปเดต game state
+    // อัปเดต game state พร้อม lastRevealResult เพื่อให้ทุกเครื่องเห็น
     await updateDoc(sessionRef, {
       hearts: newHearts,
       currentRound: newRound,
       revealedNumbers: finalRevealedNumbers,
       phase: newPhase, // 'reveal', 'levelComplete', หรือ 'finished'
       status: newStatus,
+      lastRevealResult: {
+        number: selectedNumber,
+        isCorrect,
+        heartsLost,
+        newHearts,
+      },
       updatedAt: serverTimestamp(),
     });
 

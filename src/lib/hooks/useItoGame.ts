@@ -53,6 +53,7 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
             phase: data.phase || 'waiting',
             phaseEndTime: data.phaseEndTime ? (data.phaseEndTime as Timestamp).toDate() : undefined,
             revealedNumbers: data.revealedNumbers || [],
+            lastRevealResult: data.lastRevealResult || null, // อ่าน lastRevealResult จาก Firestore
             status: data.status || 'playing',
             startedAt: data.startedAt ? (data.startedAt as Timestamp).toDate() : new Date(),
             updatedAt: data.updatedAt ? (data.updatedAt as Timestamp).toDate() : new Date(),

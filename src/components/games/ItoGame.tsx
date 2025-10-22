@@ -56,12 +56,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [revealing, setRevealing] = useState(false);
-  const [lastRevealResult, setLastRevealResult] = useState<{
-    number: number;
-    isCorrect: boolean;
-    heartsLost: number;
-    newHearts: number;
-  } | null>(null);
 
   const prevAnswersRef = useRef<string>("");
   const prevLevelRef = useRef<number>(0);
@@ -181,26 +175,16 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(false);
   };
 
-  // Handle reveal votes
+  // Handle reveal votes (ไม่ต้อง setState อีกแล้ว - Firestore จะ sync ให้)
   const handleRevealVotes = useCallback(async () => {
     if (revealing) return;
 
     setRevealing(true);
     try {
-      const response = await fetch(`/api/games/ito/${sessionId}/reveal`, {
+      await fetch(`/api/games/ito/${sessionId}/reveal`, {
         method: "POST",
       });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setLastRevealResult({
-          number: data.number,
-          isCorrect: data.isCorrect,
-          heartsLost: data.heartsLost,
-          newHearts: data.newHearts,
-        });
-      }
+      // ไม่ต้อง setLastRevealResult อีกแล้ว เพราะ Firestore จะ update และ useItoGame จะดึงมาให้
     } catch (error) {
       console.error('Reveal error:', error);
     } finally {
@@ -208,10 +192,10 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     }
   }, [revealing, sessionId]);
 
-  // Reset lastRevealResult when entering voting phase
+  // Reset flags when entering voting phase
   useEffect(() => {
     if (gameState?.phase === "voting") {
-      setLastRevealResult(null);
+      // ไม่ต้อง setLastRevealResult อีกแล้ว เพราะ Firestore จะ clear ให้ใน startVotingPhase
       // Reset flag และ timer เมื่อเข้า voting phase ใหม่
       prevVoteCountRef.current = 0;
       hasLoadedVotesRef.current = false;
@@ -440,7 +424,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         hearts={gameState.hearts}
         phase={gameState.phase}
         status={gameState.status}
-        lastRevealResult={lastRevealResult}
+        lastRevealResult={gameState.lastRevealResult || null}
         timeLeft={timeLeft}
         phaseEndTime={gameState.phaseEndTime}
       />
@@ -486,7 +470,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         <RevealPhase
           playerAnswers={playerAnswers}
           gameState={gameState}
-          lastRevealResult={lastRevealResult}
+          lastRevealResult={gameState.lastRevealResult || null}
         />
       )}
 

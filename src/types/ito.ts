@@ -65,6 +65,14 @@ export interface ItoGameState {
   // Revealed Numbers (เลขที่ถูกเปิดเผยแล้ว - เรียงจากน้อยไปมาก)
   revealedNumbers: number[];
 
+  // Last Reveal Result (ผลการเปิดเผยครั้งล่าสุด - ใช้แสดงบนทุกเครื่อง)
+  lastRevealResult?: {
+    number: number;      // เลขที่โหวต
+    isCorrect: boolean;  // ถูกหรือผิด
+    heartsLost: number;  // จำนวนหัวใจที่เสีย
+    newHearts: number;   // จำนวนหัวใจที่เหลือหลังเปิด
+  } | null;
+
   // Game Result
   status: 'playing' | 'won' | 'lost';
 
