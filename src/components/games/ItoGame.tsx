@@ -337,7 +337,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       } else {
         await startVotingPhase(sessionId);
       }
-    }, 5000);
+    }, 8000);
 
     return () => clearTimeout(timer);
   }, [gameState, sessionId]);

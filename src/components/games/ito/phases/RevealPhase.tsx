@@ -35,7 +35,7 @@ export default function RevealPhase({
   gameState,
   lastRevealResult,
 }: RevealPhaseProps) {
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(8);
 
   // Countdown timer (5 วินาที)
   useEffect(() => {
@@ -90,12 +90,18 @@ export default function RevealPhase({
       {/* Revealed Card */}
       <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 mb-4 md:mb-6 border-2 border-purple-400">
         {/* เลขที่ทีมโหวต - แสดงเด่นที่สุด */}
-        <div className="bg-white/30 rounded-xl md:rounded-2xl p-2 md:p-4 mb-3 md:mb-4 border-2 border-yellow-400">
+        <div className="bg-white/30 rounded-xl md:rounded-2xl p-4 md:p-8 mb-3 md:mb-4 border-2 border-yellow-400">
           <div className="text-center">
             <div className="text-white/90 text-base md:text-lg mb-2 md:mb-3 font-semibold">
               🎯 ทีมโหวตเลข:
             </div>
-            <div className="text-5xl md:text-6xl font-bold text-yellow-300 mb-3 md:mb-4 drop-shadow-[0_0_15px_rgba(253,224,71,0.5)]">
+            <div className={`
+              text-6xl md:text-8xl font-bold mb-3 md:mb-4
+              ${isCorrect
+                ? 'text-green-300 drop-shadow-[0_0_20px_rgba(134,239,172,0.8)] animate-pulse'
+                : 'text-red-300 drop-shadow-[0_0_20px_rgba(252,165,165,0.8)] animate-pulse'
+              }
+            `}>
               {votedAnswer.number}
             </div>
             <div className="text-white/70 text-xs md:text-sm mb-1">
@@ -118,7 +124,7 @@ export default function RevealPhase({
                 {skippedNumbers.map((num, i) => (
                   <div
                     key={i}
-                    className="text-2xl md:text-4xl font-bold text-red-300"
+                    className="text-4xl md:text-5xl font-bold text-red-300"
                   >
                     {num}
                   </div>
@@ -139,7 +145,7 @@ export default function RevealPhase({
           <>
             {isCorrect ? (
               <div className="text-center">
-                <div className="text-5xl md:text-6xl mb-2">✅</div>
+                <div className="text-5xl md:text-6xl mb-2 animate-bounce">✅</div>
                 <div className="text-xl md:text-2xl font-bold text-green-400">
                   ถูกต้อง!
                 </div>
@@ -149,11 +155,25 @@ export default function RevealPhase({
               </div>
             ) : (
               <div className="text-center">
-                <div className="text-5xl md:text-6xl mb-2">❌</div>
+                <div className="text-5xl md:text-6xl mb-2 animate-pulse">❌</div>
                 <div className="text-xl md:text-2xl font-bold text-red-400">ผิด!</div>
                 <div className="text-white/70 mt-2 text-sm md:text-base">
                   ข้ามตัวเลขไป - เสียหัวใจ {heartsLost} ดวง
                 </div>
+                {/* แสดงหัวใจที่หาย animation */}
+                {heartsLost > 0 && (
+                  <div className="flex justify-center gap-2 mt-4">
+                    {Array.from({ length: heartsLost }).map((_, i) => (
+                      <span
+                        key={i}
+                        className="text-4xl md:text-5xl animate-bounce"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      >
+                        💔
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -161,7 +181,7 @@ export default function RevealPhase({
       </div>
 
       {/* Revealed Numbers Progress */}
-      <div className="bg-white/5 rounded-lg md:rounded-xl p-4">
+      <div className="bg-white/5 rounded-lg md:rounded-xl p-4 md:p-6">
         <h4 className="text-white font-bold mb-2 md:mb-3 text-center text-sm md:text-base">
           ตัวเลขที่เปิดแล้ว:
         </h4>
