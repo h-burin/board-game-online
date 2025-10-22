@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { playerName, gameId, maxPlayers } = body;
+    const { playerName, gameId, maxPlayers, timeLimit } = body;
 
     // Validation - Player Name
     if (!playerName || typeof playerName !== 'string') {
@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
     const gameData = gameSnap.data();
     const minPlayers = gameData.minPlayer || 2;
     const maxPlayersAllowed = gameData.maxPlayer || 8;
+    const enableCustomTime = gameData.enableCustomTime || false;
+    const defaultTimeMinutes = gameData.defaultTimeMinutes;
 
     // Validation - Max Players
     if (!maxPlayers || typeof maxPlayers !== 'number') {
@@ -77,6 +79,30 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // Validation - Time Limit (if provided)
+    let finalTimeLimit: number | undefined = undefined;
+    if (timeLimit !== undefined && timeLimit !== null) {
+      // Only validate if game supports custom time
+      if (!enableCustomTime) {
+        return NextResponse.json(
+          { success: false, error: 'เกมนี้ไม่รองรับการกำหนดเวลาเอง' },
+          { status: 400 }
+        );
+      }
+
+      if (typeof timeLimit !== 'number' || timeLimit < 1 || timeLimit > 120) {
+        return NextResponse.json(
+          { success: false, error: 'เวลาเล่นต้องอยู่ระหว่าง 1-120 นาที' },
+          { status: 400 }
+        );
+      }
+
+      finalTimeLimit = timeLimit;
+    } else if (enableCustomTime && defaultTimeMinutes) {
+      // Use default time if game supports custom time but none provided
+      finalTimeLimit = defaultTimeMinutes;
     }
 
     // Generate unique room code
@@ -102,6 +128,7 @@ export async function POST(request: NextRequest) {
       status: 'waiting',
       maxPlayers: maxPlayers,
       currentPlayers: 1,
+      ...(finalTimeLimit !== undefined && { timeLimit: finalTimeLimit }), // Add timeLimit only if defined
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };

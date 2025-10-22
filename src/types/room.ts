@@ -13,6 +13,7 @@ export interface Room {
   status: 'waiting' | 'playing' | 'finished';
   maxPlayers: number;
   currentPlayers: number;
+  timeLimit?: number; // Time limit in minutes (optional, depends on game)
   createdAt: Date;
   updatedAt: Date;
 }

@@ -21,6 +21,7 @@ export default function CreateRoomPage() {
     playerName: "",
     gameId: "", // Selected game ID
     maxPlayers: 4,
+    timeLimit: 10, // Time limit in minutes (default 10)
   });
 
   const [errors, setErrors] = useState({
@@ -34,7 +35,7 @@ export default function CreateRoomPage() {
   // Get selected game details
   const selectedGame = games.find((game) => game.id === formData.gameId);
 
-  // Update maxPlayers when game changes
+  // Update maxPlayers and timeLimit when game changes
   useEffect(() => {
     if (selectedGame) {
       console.log("Selected game:", selectedGame);
@@ -42,12 +43,18 @@ export default function CreateRoomPage() {
         "minPlayer:",
         selectedGame.minPlayer,
         "maxPlayer:",
-        selectedGame.maxPlayer
+        selectedGame.maxPlayer,
+        "defaultTimeMinutes:",
+        selectedGame.defaultTimeMinutes,
+        "enableCustomTime:",
+        selectedGame.enableCustomTime
       );
       // Set maxPlayers to minPlayer by default when game is selected
+      // Set timeLimit to game's default time (if available)
       setFormData((prev) => ({
         ...prev,
         maxPlayers: selectedGame.minPlayer,
+        timeLimit: selectedGame.defaultTimeMinutes || 10,
       }));
     }
   }, [selectedGame]);
@@ -80,6 +87,11 @@ export default function CreateRoomPage() {
 
   const handleMaxPlayersChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setFormData({ ...formData, maxPlayers: parseInt(e.target.value) });
+  };
+
+  const handleTimeLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value);
+    setFormData({ ...formData, timeLimit: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,6 +135,7 @@ export default function CreateRoomPage() {
           playerName: formData.playerName.trim(),
           gameId: formData.gameId,
           maxPlayers: formData.maxPlayers,
+          timeLimit: selectedGame?.enableCustomTime ? formData.timeLimit : undefined,
         }),
       });
 
@@ -328,6 +341,36 @@ export default function CreateRoomPage() {
                 </p>
               )}
             </div>
+
+            {/* Time Limit Input - Show only if game supports custom time */}
+            {selectedGame?.enableCustomTime && (
+              <div>
+                <label
+                  htmlFor="timeLimit"
+                  className="block text-white text-base md:text-lg font-semibold mb-2"
+                >
+                  เวลาเล่น (นาที)
+                </label>
+                <input
+                  type="number"
+                  id="timeLimit"
+                  value={formData.timeLimit}
+                  onChange={handleTimeLimitChange}
+                  min={1}
+                  max={120}
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <p className="text-green-200 text-sm mt-2">
+                  ค่าเริ่มต้น: {selectedGame.defaultTimeMinutes || 10} นาที
+                  {selectedGame.defaultTimeMinutes && (
+                    <span className="text-white/60 ml-2">
+                      (ระบุ 1-120 นาที)
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
 
             {/* Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

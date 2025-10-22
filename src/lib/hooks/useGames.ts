@@ -46,6 +46,8 @@ export function useGames(): UseGamesResult {
             maxPlayer: data.maxPlayer || 8,
             description: data.description,
             imageUrl: data.imageUrl,
+            defaultTimeMinutes: data.defaultTimeMinutes,
+            enableCustomTime: data.enableCustomTime,
             createdAt: data.createdAt?.toDate(),
             updatedAt: data.updatedAt?.toDate(),
           };

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { countVotes, revealAndCheck, startVotingPhase } from '@/lib/firebase/ito';
+import { countVotes, revealAndCheck, getRandomUnrevealedAnswer } from '@/lib/firebase/ito';
 
 export async function POST(
   request: NextRequest,
@@ -15,13 +15,19 @@ export async function POST(
 
 
     // 1. นับคะแนนโหวต
-    const winner = await countVotes(sessionId);
+    let winner = await countVotes(sessionId);
 
+    // 1.1 ถ้าไม่มีใคร vote เลย → สุ่มเลือก
     if (!winner) {
-      return NextResponse.json(
-        { success: false, error: 'ไม่พบผลโหวต' },
-        { status: 400 }
-      );
+      console.log('⚠️ No votes found, randomly selecting an unrevealed answer...');
+      winner = await getRandomUnrevealedAnswer(sessionId);
+
+      if (!winner) {
+        return NextResponse.json(
+          { success: false, error: 'ไม่มีคำตอบที่ยังไม่ถูก reveal' },
+          { status: 400 }
+        );
+      }
     }
 
     // 2. เปิดเผยผลและตรวจสอบความถูกต้อง

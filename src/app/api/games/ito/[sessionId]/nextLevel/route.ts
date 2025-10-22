@@ -28,6 +28,14 @@ export async function POST(
     }
 
     const gameState = sessionSnap.data();
+    const roomId = gameState.roomId;
+
+    if (!roomId) {
+      return NextResponse.json(
+        { success: false, error: 'Room ID not found in game state' },
+        { status: 400 }
+      );
+    }
 
     // คำนวณ level ถัดไป
     const nextLevel = gameState.currentLevel + 1;
@@ -68,6 +76,7 @@ export async function POST(
 
     const success = await startNextLevel(
       sessionId,
+      roomId,
       playerIds,
       playerNames,
       nextLevel,

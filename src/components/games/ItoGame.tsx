@@ -281,16 +281,16 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     const timeSinceMount = Date.now() - mountTimeRef.current;
     if (timeSinceMount < 2000) return;
 
-    // เมื่อหมดเวลา ต้องมีการโหวตอย่างน้อย 1 vote และต้องอยู่ใน voting phase จริงๆ
+    // เมื่อหมดเวลา และต้องอยู่ใน voting phase จริงๆ
+    // ไม่ต้องเช็ค voteCount > 0 อีกต่อไป (API จะจัดการกรณีไม่มี vote ให้)
     if (
       timeLeft === 0 &&
       gameState.phase === "voting" &&
-      voteCount > 0 &&
       playerAnswers.length > 0
     ) {
       handleRevealVotes();
     }
-  }, [timeLeft, gameState, voteCount, revealing, playerAnswers, handleRevealVotes]);
+  }, [timeLeft, gameState, revealing, playerAnswers, handleRevealVotes]);
 
   // Count remaining time
   useEffect(() => {
@@ -335,7 +335,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
           updatedAt: serverTimestamp(),
         });
       } else {
-        await startVotingPhase(sessionId);
+        await startVotingPhase(sessionId, gameState.roomId);
       }
     }, 8000);
 

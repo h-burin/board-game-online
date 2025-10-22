@@ -24,6 +24,36 @@ import { db } from './config';
 import type { ItoGameState, ItoPlayerAnswer, ItoQuestion, ItoReadyStatus } from '@/types/ito';
 
 /**
+ * Helper: ดึง timeLimit จาก room (หน่วย: นาที)
+ * ถ้าไม่มีใน room จะใช้ค่า default 10 นาที
+ */
+async function getTimeLimitFromRoom(roomId: string): Promise<number> {
+  try {
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+      console.warn('⚠️ Room not found, using default time limit (10 minutes)');
+      return 10;
+    }
+
+    const roomData = roomSnap.data();
+    const timeLimit = roomData.timeLimit;
+
+    if (timeLimit && typeof timeLimit === 'number' && timeLimit > 0) {
+      console.log(`⏱️ Using room timeLimit: ${timeLimit} minutes`);
+      return timeLimit;
+    }
+
+    console.log('⏱️ No timeLimit in room, using default (10 minutes)');
+    return 10;
+  } catch (error) {
+    console.error('❌ Error getting timeLimit from room:', error);
+    return 10; // fallback to default
+  }
+}
+
+/**
  * สุ่มเลือกโจทย์จาก ito_questions
  */
 export async function getRandomQuestion(): Promise<ItoQuestion | null> {
@@ -114,6 +144,7 @@ export function generateUniqueNumbers(playerCount: number, numbersPerPlayer: num
  */
 export async function startNextLevel(
   sessionId: string,
+  roomId: string,
   playerIds: string[],
   playerNames: { [playerId: string]: string },
   currentLevel: number,
@@ -121,6 +152,7 @@ export async function startNextLevel(
 ): Promise<boolean> {
   console.log('🚀 [startNextLevel] CALLED with:', {
     sessionId,
+    roomId,
     playerIds,
     currentLevel,
     currentHearts,
@@ -133,13 +165,16 @@ export async function startNextLevel(
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
     }
 
-    // 2. คำนวณจำนวนเลขต่อคน (level 1=1, 2=2, 3=3)
+    // 2. ดึง timeLimit จาก room
+    const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
+
+    // 3. คำนวณจำนวนเลขต่อคน (level 1=1, 2=2, 3=3)
     const numbersPerPlayer = currentLevel;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
     const totalNumbers = playerIds.length * numbersPerPlayer;
-    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
+    const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
-    // 3. ใช้ Batch Write เพื่อป้องกัน race condition
+    // 4. ใช้ Batch Write เพื่อป้องกัน race condition
     const batch = writeBatch(db);
     const sessionRef = doc(db, 'game_sessions', sessionId);
     const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
@@ -259,13 +294,16 @@ export async function initializeItoGame(
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
     }
 
-    // 2. สุ่มเลขให้ผู้เล่น (Level 1 = คนละ 1 เลข)
+    // 2. ดึง timeLimit จาก room
+    const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
+
+    // 3. สุ่มเลขให้ผู้เล่น (Level 1 = คนละ 1 เลข)
     const numbersPerPlayer = 1;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
-    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
+    const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
     const totalNumbers = playerIds.length * numbersPerPlayer;
 
-    // 3. ใช้ Transaction เพื่อป้องกัน race condition
+    // 4. ใช้ Transaction เพื่อป้องกัน race condition
     const result = await runTransaction(db, async (transaction) => {
       const sessionRef = doc(db, 'game_sessions', sessionId);
       const playerAnswersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
@@ -571,10 +609,13 @@ export async function checkAllAnswersSubmitted(sessionId: string): Promise<boole
 /**
  * เปลี่ยน Phase เป็น Voting
  */
-export async function startVotingPhase(sessionId: string): Promise<boolean> {
+export async function startVotingPhase(sessionId: string, roomId: string): Promise<boolean> {
   try {
     const sessionRef = doc(db, 'game_sessions', sessionId);
-    const phaseEndTime = new Date(Date.now() + 10 * 60 * 1000); // 10 นาที
+
+    // ดึง timeLimit จาก room
+    const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
+    const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
     await updateDoc(sessionRef, {
       phase: 'voting',
@@ -618,6 +659,41 @@ export async function submitVote(
   } catch (error) {
     console.error('❌ Error submitting vote:', error);
     return false;
+  }
+}
+
+/**
+ * สุ่มเลือกคำตอบที่ยังไม่ถูก reveal (ใช้เมื่อไม่มีใคร vote)
+ * @returns answerId ในรูปแบบ { playerId, answerIndex } หรือ null ถ้าไม่มี
+ */
+export async function getRandomUnrevealedAnswer(sessionId: string): Promise<{ playerId: string; answerIndex: number } | null> {
+  try {
+    const answersRef = collection(db, `game_sessions/${sessionId}/player_answers`);
+    const q = query(answersRef, where('isRevealed', '==', false));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log('⚠️ No unrevealed answers found');
+      return null;
+    }
+
+    // สุ่มเลือก 1 ตัวจากที่ยังไม่ถูก reveal
+    const unrevealedAnswers = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        playerId: data.playerId,
+        answerIndex: data.answerIndex
+      };
+    });
+
+    const randomIndex = Math.floor(Math.random() * unrevealedAnswers.length);
+    const selected = unrevealedAnswers[randomIndex];
+
+    console.log('🎲 Randomly selected unrevealed answer:', selected);
+    return selected;
+  } catch (error) {
+    console.error('❌ Error getting random unrevealed answer:', error);
+    return null;
   }
 }
 
