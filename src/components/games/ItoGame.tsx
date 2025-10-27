@@ -447,6 +447,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       <div>
         <GameHeader
           questionText={gameState.questionText}
+          createdBy={gameState.questionCreatedBy}
           revealedCount={gameState.revealedNumbers.length}
           totalRounds={gameState.totalRounds}
           hearts={gameState.hearts}

@@ -76,6 +76,7 @@ export async function getRandomQuestion(): Promise<ItoQuestion | null> {
         id: doc.id,
         questionsTH: doc.data().questionsTH || 'ไม่มีโจทย์',
         isActive: doc.data().isActive ?? true,
+        createdBy: doc.data().createdBy, // เพิ่มการดึง createdBy
       }));
 
     if (activeQuestions.length === 0) {
@@ -223,6 +224,7 @@ export async function startNextLevel(
       totalRounds: totalNumbers,
       questionId: question.id,
       questionText: question.questionsTH,
+      questionCreatedBy: question.createdBy, // เพิ่มผู้สร้างโจทย์
       phase: 'writing', // เริ่มที่ Writing Phase ไม่มี timer
       phaseEndTime: null, // ไม่ตั้ง timer ในช่วง Writing Phase
       revealedNumbers: [],
@@ -348,6 +350,7 @@ export async function initializeItoGame(
         totalRounds: totalNumbers,
         questionId: question.id,
         questionText: question.questionsTH,
+        questionCreatedBy: question.createdBy, // เพิ่มผู้สร้างโจทย์
         phase: 'writing', // เริ่มที่ Writing Phase ไม่มี timer
         phaseEndTime: undefined, // ไม่ตั้ง timer ในช่วง Writing Phase
         revealedNumbers: [],

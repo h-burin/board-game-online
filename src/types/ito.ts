@@ -57,6 +57,7 @@ export interface ItoGameState {
   // Question
   questionId: string;       // ID ของโจทย์จาก ito_questions (เปลี่ยนทุก level)
   questionText: string;     // โจทย์ (เก็บไว้เพื่อความสะดวก)
+  questionCreatedBy?: string; // ผู้สร้างโจทย์
 
   // Phase Management
   phase: ItoGamePhase;

@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 
 interface GameHeaderProps {
   questionText: string;
+  createdBy?: string;
   revealedCount: number;
   totalRounds: number;
   hearts: number;
@@ -27,6 +28,7 @@ interface GameHeaderProps {
 
 export default function GameHeader({
   questionText,
+  createdBy,
   revealedCount,
   totalRounds,
   hearts,
@@ -75,9 +77,16 @@ export default function GameHeader({
         <div className="space-y-2">
           {/* บรรทัดที่ 1: โจทย์ + Home Button */}
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm md:text-base text-white font-semibold truncate flex-1">
-              {questionText}
-            </p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm md:text-base text-white font-semibold truncate">
+                {questionText}
+              </p>
+              {createdBy && (
+                <p className="text-xs text-white/50 truncate mt-0.5">
+                  สร้างโดย: {createdBy}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-2 md:gap-3">
               <span className="text-xs md:text-sm text-blue-300 whitespace-nowrap">
                 {revealedCount}/{totalRounds} เลข
@@ -142,6 +151,11 @@ export default function GameHeader({
               <p className="text-lg md:text-3xl font-bold text-white mb-1 md:mb-2">
                 {questionText}
               </p>
+              {createdBy && (
+                <p className="text-xs md:text-sm text-white/50 mb-2">
+                  สร้างโดย: {createdBy}
+                </p>
+              )}
               <p className="text-sm md:text-base text-blue-200">
                 เปิดแล้ว {revealedCount}/{totalRounds} เลข
               </p>

@@ -50,6 +50,7 @@ export function useItoGame(sessionId: string, playerId: string | null): UseItoGa
             totalRounds: data.totalRounds || 0,
             questionId: data.questionId || '',
             questionText: data.questionText || '',
+            questionCreatedBy: data.questionCreatedBy, // เพิ่มการดึง questionCreatedBy
             phase: data.phase || 'waiting',
             phaseEndTime: data.phaseEndTime ? (data.phaseEndTime as Timestamp).toDate() : undefined,
             revealedNumbers: data.revealedNumbers || [],
