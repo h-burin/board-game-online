@@ -289,7 +289,7 @@ export default function AdminQuestionsPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <p className="text-gray-600 text-sm sm:text-base">ยังไม่มีโจทย์</p>
-                      <p className="text-gray-500 text-xs sm:text-sm mt-1">คลิกปุ่ม "เพิ่มโจทย์ใหม่" เพื่อเริ่มต้น</p>
+                      <p className="text-gray-500 text-xs sm:text-sm mt-1">คลิกปุ่ม &quot;เพิ่มโจทย์ใหม่&quot; เพื่อเริ่มต้น</p>
                     </td>
                   </tr>
                 ) : (
