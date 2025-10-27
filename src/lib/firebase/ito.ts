@@ -54,7 +54,7 @@ async function getTimeLimitFromRoom(roomId: string): Promise<number> {
 }
 
 /**
- * สุ่มเลือกโจทย์จาก ito_questions
+ * สุ่มเลือกโจทย์จาก ito_questions (เฉพาะโจทย์ที่ isActive = true)
  */
 export async function getRandomQuestion(): Promise<ItoQuestion | null> {
   try {
@@ -66,14 +66,27 @@ export async function getRandomQuestion(): Promise<ItoQuestion | null> {
       return null;
     }
 
-    // Random เลือก 1 โจทย์
-    const questions = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      questionsTH: doc.data().questionsTH || 'ไม่มีโจทย์',
-    }));
+    // กรองเฉพาะโจทย์ที่ isActive = true (default true ถ้าไม่มี field)
+    const activeQuestions = snapshot.docs
+      .filter((doc) => {
+        const isActive = doc.data().isActive;
+        return isActive === undefined || isActive === true;
+      })
+      .map((doc) => ({
+        id: doc.id,
+        questionsTH: doc.data().questionsTH || 'ไม่มีโจทย์',
+        isActive: doc.data().isActive ?? true,
+      }));
 
-    const randomIndex = Math.floor(Math.random() * questions.length);
-    return questions[randomIndex];
+    if (activeQuestions.length === 0) {
+      console.error('❌ No active questions found in ito_questions collection');
+      return null;
+    }
+
+    // Random เลือก 1 โจทย์จากโจทย์ที่ active
+    const randomIndex = Math.floor(Math.random() * activeQuestions.length);
+    console.log(`🎲 Selected random question from ${activeQuestions.length} active questions`);
+    return activeQuestions[randomIndex];
   } catch (error) {
     console.error('Error getting random question:', error);
     return null;

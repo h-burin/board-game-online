@@ -16,6 +16,7 @@ export default function AdminQuestionsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<ItoQuestion | null>(null);
   const [questionText, setQuestionText] = useState('');
+  const [createdBy, setCreatedBy] = useState('Admin');
   const [submitting, setSubmitting] = useState(false);
 
   // Track admin activity and auto-logout after 8 hours of inactivity
@@ -44,9 +45,12 @@ export default function AdminQuestionsPage() {
       const questionsData: ItoQuestion[] = [];
 
       snapshot.forEach((doc) => {
+        const data = doc.data();
         questionsData.push({
           id: doc.id,
-          questionsTH: doc.data().questionsTH || '',
+          questionsTH: data.questionsTH || '',
+          isActive: data.isActive ?? true, // default true ถ้าไม่มี field
+          createdBy: data.createdBy,
         });
       });
 
@@ -71,6 +75,7 @@ export default function AdminQuestionsPage() {
   const handleAdd = () => {
     setEditingQuestion(null);
     setQuestionText('');
+    setCreatedBy('Admin');
     setShowModal(true);
   };
 
@@ -78,6 +83,7 @@ export default function AdminQuestionsPage() {
   const handleEdit = (question: ItoQuestion) => {
     setEditingQuestion(question);
     setQuestionText(question.questionsTH);
+    setCreatedBy(question.createdBy || 'Admin');
     setShowModal(true);
   };
 
@@ -114,6 +120,7 @@ export default function AdminQuestionsPage() {
         const questionRef = doc(db, 'ito_questions', editingQuestion.id);
         await updateDoc(questionRef, {
           questionsTH: questionText.trim(),
+          createdBy: createdBy.trim() || 'Admin', // อัปเดต createdBy ด้วย
           updatedAt: serverTimestamp(),
         });
         console.log('✅ Updated question:', editingQuestion.id);
@@ -121,6 +128,8 @@ export default function AdminQuestionsPage() {
         // Add new
         await addDoc(collection(db, 'ito_questions'), {
           questionsTH: questionText.trim(),
+          isActive: false, // ตั้งค่า default เป็น inactive
+          createdBy: createdBy.trim() || 'Admin', // ใช้ค่าจาก input
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -129,6 +138,7 @@ export default function AdminQuestionsPage() {
 
       setShowModal(false);
       setQuestionText('');
+      setCreatedBy('Admin');
       setEditingQuestion(null);
       loadQuestions();
     } catch (error) {
@@ -136,6 +146,25 @@ export default function AdminQuestionsPage() {
       alert('ไม่สามารถบันทึกโจทย์ได้');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Toggle isActive
+  const handleToggleActive = async (question: ItoQuestion) => {
+    try {
+      const questionRef = doc(db, 'ito_questions', question.id);
+      const newIsActive = !question.isActive;
+
+      await updateDoc(questionRef, {
+        isActive: newIsActive,
+        updatedAt: serverTimestamp(),
+      });
+
+      console.log('✅ Toggled isActive:', question.id, newIsActive);
+      loadQuestions();
+    } catch (error) {
+      console.error('Error toggling isActive:', error);
+      alert('ไม่สามารถเปลี่ยนสถานะได้');
     }
   };
 
@@ -248,13 +277,14 @@ export default function AdminQuestionsPage() {
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider w-12 sm:w-20">#</th>
                   <th className="px-3 sm:px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">โจทย์</th>
+                  <th className="px-3 sm:px-6 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider w-24 sm:w-32">สถานะ</th>
                   <th className="px-3 sm:px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">จัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {questions.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 sm:px-6 py-8 sm:py-12 text-center">
+                    <td colSpan={4} className="px-4 sm:px-6 py-8 sm:py-12 text-center">
                       <svg className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-2 sm:mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
@@ -266,7 +296,38 @@ export default function AdminQuestionsPage() {
                   questions.map((question, index) => (
                     <tr key={question.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-900">{question.questionsTH}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="text-xs sm:text-sm text-gray-900">{question.questionsTH}</div>
+                        {question.createdBy && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            สร้างโดย: {question.createdBy}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className={`text-xs font-medium ${question.isActive ? 'text-gray-400' : 'text-gray-700'}`}>
+                            ปิด
+                          </span>
+                          <button
+                            onClick={() => handleToggleActive(question)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
+                              question.isActive ? 'bg-emerald-600' : 'bg-gray-300'
+                            }`}
+                            role="switch"
+                            aria-checked={question.isActive}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                question.isActive ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                          <span className={`text-xs font-medium ${question.isActive ? 'text-emerald-700' : 'text-gray-400'}`}>
+                            เปิด
+                          </span>
+                        </div>
+                      </td>
                       <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                         <div className="flex justify-end gap-1 sm:gap-2">
                           <button
@@ -307,7 +368,7 @@ export default function AdminQuestionsPage() {
                 {editingQuestion ? 'แก้ไขโจทย์' : 'เพิ่มโจทย์ใหม่'}
               </h2>
 
-              <div className="mb-5 sm:mb-6">
+              <div className="mb-4 sm:mb-5">
                 <label className="block text-gray-700 text-sm font-medium mb-2">
                   โจทย์ (ภาษาไทย)
                 </label>
@@ -317,6 +378,19 @@ export default function AdminQuestionsPage() {
                   placeholder="เช่น ความสูง (เซนติเมตร)"
                   className="w-full px-3 sm:px-4 py-2.5 rounded-lg border border-gray-300 text-gray-900 text-sm sm:text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent transition-all resize-none"
                   rows={3}
+                />
+              </div>
+
+              <div className="mb-5 sm:mb-6">
+                <label className="block text-gray-700 text-sm font-medium mb-2">
+                  ผู้สร้าง
+                </label>
+                <input
+                  type="text"
+                  value={createdBy}
+                  onChange={(e) => setCreatedBy(e.target.value)}
+                  placeholder="Admin"
+                  className="w-full px-3 sm:px-4 py-2.5 rounded-lg border border-gray-300 text-gray-900 text-sm sm:text-base placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-600 focus:border-transparent transition-all"
                 />
               </div>
 

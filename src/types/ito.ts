@@ -85,6 +85,8 @@ export interface ItoGameState {
 export interface ItoQuestion {
   id: string;
   questionsTH: string;      // โจทย์ภาษาไทย
+  isActive?: boolean;       // เปิด/ปิดการใช้งานโจทย์ (default: true)
+  createdBy?: string;       // email ของคนที่สร้าง
   // อาจจะมี field อื่นๆ เพิ่มในอนาคต เช่น
   // questionsEN?: string;
   // category?: string;
