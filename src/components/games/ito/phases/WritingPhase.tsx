@@ -142,7 +142,7 @@ export default function WritingPhase({
                       disabled={submitting}
                       className="w-full bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 rounded-xl transition-all text-sm md:text-base"
                     >
-                      {submitting ? "กำลังยกเลิก..." : "✏️ แก้ไขคำตอบ"}
+                      {submitting ? "กำลังยกเลิก..." : "แก้ไขคำตอบ"}
                     </button>
                   </div>
                 )}
@@ -150,6 +150,30 @@ export default function WritingPhase({
             );
           })}
       </div>
+
+      {/* ปุ่มส่งทั้งหมด - แสดงเฉพาะเมื่อมีหลายคำตอบและพิมพ์ครบแล้ว */}
+      {myAnswers.length > 1 && (() => {
+        const allFilled = myAnswers.every(
+          (ans) => answers[ans.answerIndex]?.trim()
+        );
+        const hasUnsubmitted = myAnswers.some((ans) => !ans.submittedAt);
+
+        return allFilled && hasUnsubmitted ? (
+          <button
+            onClick={async () => {
+              for (const ans of myAnswers) {
+                if (!ans.submittedAt && answers[ans.answerIndex]?.trim()) {
+                  await handleSubmitAnswer(ans.answerIndex);
+                }
+              }
+            }}
+            disabled={submitting}
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 text-base md:text-lg shadow-lg mt-4 md:mt-6"
+          >
+            {submitting ? "กำลังส่ง..." : "ส่งคำใบ้ทั้งหมด"}
+          </button>
+        ) : null;
+      })()}
 
       {/* แสดงสถานะรวม */}
       {myAnswers.every((ans) => ans.submittedAt) && (
