@@ -64,7 +64,9 @@ export default function GameHeader({
   return (
     <div
       className={`
-        ${isScrolled ? "fixed" : "relative"} top-0 left-0 right-0 z-50 transition-all duration-300
+        ${
+          isScrolled ? "fixed" : "relative"
+        } top-0 left-0 right-0 z-50 transition-all duration-300
         ${
           isScrolled
             ? "bg-gradient-to-r from-purple-900/95 to-indigo-900/95 backdrop-blur-xl shadow-2xl py-2 md:py-3 px-4 md:px-6"
@@ -78,7 +80,7 @@ export default function GameHeader({
           {/* บรรทัดที่ 1: โจทย์ + Home Button */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-sm md:text-base text-white font-semibold truncate">
+              <p className="text-sm md:text-base text-white font-semibold truncate flex-1">
                 {questionText}
               </p>
               {createdBy && (
@@ -123,7 +125,9 @@ export default function GameHeader({
                 <div
                   key={i}
                   className={`text-lg md:text-xl transition-all ${
-                    i < currentHearts ? "text-red-500" : "text-gray-600 opacity-30"
+                    i < currentHearts
+                      ? "text-red-500"
+                      : "text-gray-600 opacity-30"
                   }`}
                 >
                   ❤️
@@ -147,7 +151,9 @@ export default function GameHeader({
         <>
           <div className="flex flex-col md:flex-row items-center justify-between mb-4 md:mb-6">
             <div className="mb-4 md:mb-0 w-full md:w-auto text-center md:text-left">
-              <h3 className="text-sm md:text-lg text-white/70 mb-1 md:mb-2">โจทย์:</h3>
+              <h3 className="text-sm md:text-lg text-white/70 mb-1 md:mb-2">
+                โจทย์:
+              </h3>
               <p className="text-lg md:text-3xl font-bold text-white mb-1 md:mb-2">
                 {questionText}
               </p>
@@ -189,7 +195,9 @@ export default function GameHeader({
               <div className="text-4xl md:text-6xl font-bold text-yellow-300">
                 {minutes}:{seconds.toString().padStart(2, "0")}
               </div>
-              <div className="text-xs md:text-sm text-white/70 mt-1">เวลาเล่น</div>
+              <div className="text-xs md:text-sm text-white/70 mt-1">
+                เวลาเล่น
+              </div>
             </div>
           )}
         </>
