@@ -78,10 +78,10 @@ export default function RevealPhase({
   return (
     <>
       {/* Backdrop Overlay */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fadeIn" />
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] animate-fadeIn" />
 
       {/* Popup Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-fadeIn">
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
             ผลการโหวต
