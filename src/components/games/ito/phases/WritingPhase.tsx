@@ -84,7 +84,7 @@ export default function WritingPhase({
       <RevealedNumbersList revealedNumbers={gameState.revealedNumbers} />
 
       {/* แสดงช่องกรอกแยกสำหรับแต่ละเลข */}
-      <div className="space-y-4 md:space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
         {myAnswers
           .sort((a, b) => a.answerIndex - b.answerIndex)
           .map((ans) => {

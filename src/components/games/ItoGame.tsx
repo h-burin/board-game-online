@@ -122,6 +122,46 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     });
   }, [myAnswers, gameState]);
 
+  // Auto-transition from Writing to Voting when all players submitted
+  useEffect(() => {
+    if (!gameState || gameState.phase !== "writing") return;
+    if (playerAnswers.length === 0) return;
+
+    const uniquePlayerIds = Array.from(
+      new Set(playerAnswers.map((a) => a.playerId))
+    );
+    const expectedAnswersPerPlayer = gameState.currentLevel;
+    const totalExpectedAnswers = uniquePlayerIds.length * expectedAnswersPerPlayer;
+
+    // ตรวจสอบว่าทุกคนส่งคำใบ้ครบหรือยัง
+    const allSubmitted = playerAnswers.every(
+      (ans) => ans.answer.trim() !== "" && ans.submittedAt !== undefined && ans.submittedAt !== null
+    );
+
+    const hasCorrectCount = playerAnswers.length === totalExpectedAnswers;
+
+    if (allSubmitted && hasCorrectCount) {
+      // เรียก API เพื่อเริ่ม Voting Phase พร้อม timer
+      const startVoting = async () => {
+        try {
+          const response = await fetch(`/api/games/ito/${sessionId}/startVoting`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomId: gameState.roomId }),
+          });
+
+          if (!response.ok) {
+            console.error("Failed to start voting phase");
+          }
+        } catch (error) {
+          console.error("Error starting voting phase:", error);
+        }
+      };
+
+      startVoting();
+    }
+  }, [gameState, playerAnswers, sessionId]);
+
   // Handle submit answer
   const handleSubmitAnswer = async (answerIndex: number) => {
     const answer = answers[answerIndex];
@@ -292,9 +332,18 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     }
   }, [timeLeft, gameState, revealing, playerAnswers, handleRevealVotes]);
 
-  // Count remaining time
+  // Count remaining time (เฉพาะ Voting Phase เท่านั้น)
   useEffect(() => {
-    if (!gameState || !gameState.phaseEndTime) return;
+    if (!gameState || !gameState.phaseEndTime) {
+      setTimeLeft(0);
+      return;
+    }
+
+    // ไม่แสดง timer ใน Writing Phase
+    if (gameState.phase === "writing") {
+      setTimeLeft(0);
+      return;
+    }
 
     const interval = setInterval(() => {
       const now = Date.now();
@@ -308,7 +357,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [gameState?.phaseEndTime]);
+  }, [gameState?.phaseEndTime, gameState?.phase]);
 
   // Auto-transition from reveal phase
   useEffect(() => {

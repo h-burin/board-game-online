@@ -165,14 +165,16 @@ export async function startNextLevel(
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
     }
 
-    // 2. ดึง timeLimit จาก room
-    const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
+    // 2. ไม่ต้องดึง timeLimit ตอนนี้ (จะดึงตอน Voting Phase)
+    // const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
 
     // 3. คำนวณจำนวนเลขต่อคน (level 1=1, 2=2, 3=3)
     const numbersPerPlayer = currentLevel;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
     const totalNumbers = playerIds.length * numbersPerPlayer;
-    const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
+
+    // ไม่ตั้ง phaseEndTime ในช่วง Writing Phase (จะตั้งตอน Voting Phase)
+    // const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
     // 4. ใช้ Batch Write เพื่อป้องกัน race condition
     const batch = writeBatch(db);
@@ -208,8 +210,8 @@ export async function startNextLevel(
       totalRounds: totalNumbers,
       questionId: question.id,
       questionText: question.questionsTH,
-      phase: 'voting',
-      phaseEndTime: Timestamp.fromDate(phaseEndTime),
+      phase: 'writing', // เริ่มที่ Writing Phase ไม่มี timer
+      phaseEndTime: null, // ไม่ตั้ง timer ในช่วง Writing Phase
       revealedNumbers: [],
       lastRevealResult: null, // Clear lastRevealResult เมื่อเริ่ม level ใหม่
       updatedAt: serverTimestamp(),
@@ -294,14 +296,16 @@ export async function initializeItoGame(
       throw new Error('ไม่สามารถสุ่มโจทย์ได้');
     }
 
-    // 2. ดึง timeLimit จาก room
-    const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
+    // 2. ไม่ต้องดึง timeLimit ตอนนี้ (จะดึงตอน Voting Phase)
+    // const timeLimitMinutes = await getTimeLimitFromRoom(roomId);
 
     // 3. สุ่มเลขให้ผู้เล่น (Level 1 = คนละ 1 เลข)
     const numbersPerPlayer = 1;
     const numbers = generateUniqueNumbers(playerIds.length, numbersPerPlayer);
-    const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
     const totalNumbers = playerIds.length * numbersPerPlayer;
+
+    // ไม่ตั้ง phaseEndTime ในช่วง Writing Phase (จะตั้งตอน Voting Phase)
+    // const phaseEndTime = new Date(Date.now() + timeLimitMinutes * 60 * 1000);
 
     // 4. ใช้ Transaction เพื่อป้องกัน race condition
     const result = await runTransaction(db, async (transaction) => {
@@ -331,8 +335,8 @@ export async function initializeItoGame(
         totalRounds: totalNumbers,
         questionId: question.id,
         questionText: question.questionsTH,
-        phase: 'voting',
-        phaseEndTime: phaseEndTime,
+        phase: 'writing', // เริ่มที่ Writing Phase ไม่มี timer
+        phaseEndTime: undefined, // ไม่ตั้ง timer ในช่วง Writing Phase
         revealedNumbers: [],
         status: 'playing',
         startedAt: new Date(),
@@ -362,7 +366,7 @@ export async function initializeItoGame(
         ...gameState,
         startedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-        phaseEndTime: Timestamp.fromDate(phaseEndTime),
+        phaseEndTime: null, // ไม่ตั้ง timer ในช่วง Writing Phase
       });
 
       // สร้าง player answers ทั้งหมด
