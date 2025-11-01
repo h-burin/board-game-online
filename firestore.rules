@@ -104,11 +104,11 @@ service cloud.firestore {
     }
 
     // =========================================
-    // User Ages Collection (NEW)
+    // User Analytics Collection (NEW)
     // =========================================
-    match /user_ages/{ageId} {
+    match /user_analytics/{analyticsId} {
       allow read: if request.auth != null; // admin เท่านั้น
-      allow create: if true; // อนุญาตให้ทุกคนสร้างข้อมูลอายุได้
+      allow create: if true; // อนุญาตให้ทุกคนสร้างข้อมูล analytics ได้
       allow update, delete: if false; // ไม่อนุญาตให้แก้ไขหรือลบ
     }
 
