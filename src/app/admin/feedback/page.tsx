@@ -11,7 +11,6 @@ import { FaBug, FaLightbulb, FaCheck, FaEye, FaClock, FaTrash, FaArrowLeft } fro
 import type { Feedback } from '@/types/feedback';
 
 type FilterStatus = 'all' | 'pending' | 'reviewed' | 'resolved';
-type FilterType = 'all' | 'issue' | 'improvement';
 
 export default function AdminFeedbackPage() {
   const router = useRouter();
@@ -20,7 +19,6 @@ export default function AdminFeedbackPage() {
   const { feedbacks, loading: feedbacksLoading } = useFeedback();
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [filterType, setFilterType] = useState<FilterType>('all');
   const [selectedFeedback, setSelectedFeedback] = useState<Feedback | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -40,12 +38,13 @@ export default function AdminFeedbackPage() {
     return () => unsubscribe();
   }, [router]);
 
-  // Filter feedbacks
-  const filteredFeedbacks = feedbacks.filter((feedback) => {
-    if (filterStatus !== 'all' && feedback.status !== filterStatus) return false;
-    if (filterType !== 'all' && feedback.type !== filterType) return false;
-    return true;
-  });
+  // Filter feedbacks (แสดงเฉพาะแจ้งปัญหา)
+  const filteredFeedbacks = feedbacks
+    .filter((feedback) => feedback.type === 'issue')
+    .filter((feedback) => {
+      if (filterStatus !== 'all' && feedback.status !== filterStatus) return false;
+      return true;
+    });
 
   // Handle status update
   const handleStatusUpdate = async (feedbackId: string, status: 'pending' | 'reviewed' | 'resolved') => {
@@ -141,54 +140,38 @@ export default function AdminFeedbackPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}
         <div className="bg-white rounded-lg shadow border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">สถานะ</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">ทั้งหมด</option>
-                <option value="pending">รอดำเนินการ</option>
-                <option value="reviewed">ตรวจสอบแล้ว</option>
-                <option value="resolved">เสร็จสิ้น</option>
-              </select>
-            </div>
-
-            {/* Type Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">ประเภท</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value as FilterType)}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">ทั้งหมด</option>
-                <option value="issue">แจ้งปัญหา</option>
-                <option value="improvement">ช่วยปรับปรุง</option>
-              </select>
-            </div>
+          {/* Status Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">กรองตามสถานะ</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              <option value="pending">รอดำเนินการ</option>
+              <option value="reviewed">ตรวจสอบแล้ว</option>
+              <option value="resolved">เสร็จสิ้น</option>
+            </select>
           </div>
 
           {/* Stats */}
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-gray-900">{feedbacks.length}</div>
+                <div className="text-2xl font-bold text-gray-900">{feedbacks.filter(f => f.type === 'issue').length}</div>
                 <div className="text-sm text-gray-600">ทั้งหมด</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-yellow-600">{feedbacks.filter(f => f.status === 'pending').length}</div>
+                <div className="text-2xl font-bold text-yellow-600">{feedbacks.filter(f => f.type === 'issue' && f.status === 'pending').length}</div>
                 <div className="text-sm text-gray-600">รอดำเนินการ</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-blue-600">{feedbacks.filter(f => f.status === 'reviewed').length}</div>
+                <div className="text-2xl font-bold text-blue-600">{feedbacks.filter(f => f.type === 'issue' && f.status === 'reviewed').length}</div>
                 <div className="text-sm text-gray-600">ตรวจสอบแล้ว</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-green-600">{feedbacks.filter(f => f.status === 'resolved').length}</div>
+                <div className="text-2xl font-bold text-green-600">{feedbacks.filter(f => f.type === 'issue' && f.status === 'resolved').length}</div>
                 <div className="text-sm text-gray-600">เสร็จสิ้น</div>
               </div>
             </div>
@@ -245,10 +228,6 @@ export default function AdminFeedbackPage() {
                 </div>
 
                 <div className="space-y-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
-                    <p className="text-gray-900">{selectedFeedback.type === 'issue' ? 'แจ้งปัญหา' : 'ช่วยปรับปรุงเกม'}</p>
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">เกม</label>

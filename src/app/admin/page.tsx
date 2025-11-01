@@ -106,15 +106,17 @@ export default function AdminDashboardPage() {
         <div className="mb-6 sm:mb-8">
           <button
             onClick={() => router.push('/admin/feedback')}
-            className="w-full bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+            className="w-full bg-white hover:bg-gray-50 text-gray-900 p-6 rounded-xl border-2 border-gray-200 hover:border-slate-400  transition-all"
           >
             <div className="flex items-center gap-4">
-              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
+              <div className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
               <div className="text-left">
-                <h3 className="text-xl font-bold">Feedback</h3>
-                <p className="text-sm text-white/90">จัดการข้อเสนอแนะจากผู้ใช้</p>
+                <h3 className="text-xl font-bold text-gray-900">Feedback</h3>
+                <p className="text-sm text-gray-600">จัดการข้อเสนอแนะจากผู้ใช้</p>
               </div>
             </div>
           </button>

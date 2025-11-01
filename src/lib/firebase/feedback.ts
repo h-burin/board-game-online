@@ -9,6 +9,9 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
+  getDocs,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -36,6 +39,22 @@ export async function submitFeedback(feedback: Omit<Feedback, 'id' | 'createdAt'
 }
 
 /**
+ * Check if Ito question already exists
+ */
+export async function checkDuplicateItoQuestion(questionsTH: string): Promise<boolean> {
+  try {
+    const questionsRef = collection(db, 'ito_questions');
+    const q = query(questionsRef, where('questionsTH', '==', questionsTH.trim()));
+    const snapshot = await getDocs(q);
+
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('❌ Error checking duplicate question:', error);
+    return false;
+  }
+}
+
+/**
  * Submit suggested Ito question (ช่วยปรับปรุงเกม Ito)
  */
 export async function submitItoQuestion(
@@ -43,10 +62,16 @@ export async function submitItoQuestion(
   createdBy: string
 ): Promise<string> {
   try {
+    // ตรวจสอบคำถามซ้ำ
+    const isDuplicate = await checkDuplicateItoQuestion(questionsTH);
+    if (isDuplicate) {
+      throw new Error('คำถามนี้มีอยู่ในระบบแล้ว');
+    }
+
     const questionsRef = collection(db, 'ito_questions');
 
     const docRef = await addDoc(questionsRef, {
-      questionsTH,
+      questionsTH: questionsTH.trim(),
       createdBy,
       isActive: false, // เริ่มต้นเป็น false รอ admin approve
       createdAt: serverTimestamp(),
@@ -56,6 +81,9 @@ export async function submitItoQuestion(
     return docRef.id;
   } catch (error) {
     console.error('❌ Error submitting Ito question:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error('ไม่สามารถส่งคำถามได้');
   }
 }

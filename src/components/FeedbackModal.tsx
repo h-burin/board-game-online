@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { FaTimes, FaBug, FaLightbulb, FaChevronLeft } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaTimes, FaBug, FaLightbulb, FaChevronLeft, FaExclamationTriangle, FaCheckCircle } from 'react-icons/fa';
 import { useGames } from '@/lib/hooks/useGames';
-import { submitFeedback, submitItoQuestion } from '@/lib/firebase/feedback';
+import { submitFeedback, submitItoQuestion, checkDuplicateItoQuestion } from '@/lib/firebase/feedback';
 import type { FeedbackType } from '@/types/feedback';
 
 interface FeedbackModalProps {
@@ -29,6 +29,10 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   const [questionsTH, setQuestionsTH] = useState('');
   const [userName, setUserName] = useState('');
 
+  // Duplicate check
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
   const resetForm = () => {
     setStep('select-type');
     setFeedbackType(null);
@@ -37,6 +41,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     setDescription('');
     setQuestionsTH('');
     setUserName('');
+    setIsDuplicate(false);
+    setIsChecking(false);
     setSuccess(false);
   };
 
@@ -58,8 +64,27 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       setDescription('');
       setQuestionsTH('');
       setUserName('');
+      setIsDuplicate(false);
+      setIsChecking(false);
     }
   };
+
+  // Check for duplicate question when typing
+  useEffect(() => {
+    if (feedbackType === 'improvement' && selectedGameId === 'BWLxJkh45e6RiALRBmcl' && questionsTH.trim().length > 5) {
+      const timeoutId = setTimeout(async () => {
+        setIsChecking(true);
+        const duplicate = await checkDuplicateItoQuestion(questionsTH);
+        setIsDuplicate(duplicate);
+        setIsChecking(false);
+      }, 500); // Debounce 500ms
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      setIsDuplicate(false);
+      setIsChecking(false);
+    }
+  }, [questionsTH, feedbackType, selectedGameId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +108,9 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       } else {
         // Submit Ito question
         if (selectedGameId === 'BWLxJkh45e6RiALRBmcl') {
+          if (isDuplicate) {
+            throw new Error('คำถามนี้มีอยู่ในระบบแล้ว');
+          }
           await submitItoQuestion(questionsTH, userName);
         } else {
           throw new Error('ขณะนี้รองรับเฉพาะเกม Ito เท่านั้น');
@@ -259,8 +287,34 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                           required={selectedGameId === 'BWLxJkh45e6RiALRBmcl'}
                           rows={3}
                           placeholder="เช่น ความสูงของต้นไม้ที่คุณชอบ, ความร้อนของกาแฟที่เหมาะสม"
-                          className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                          className={`w-full px-4 py-3 rounded-lg border ${
+                            isDuplicate ? 'border-red-500' : 'border-gray-300'
+                          } focus:outline-none focus:ring-2 ${
+                            isDuplicate ? 'focus:ring-red-500' : 'focus:ring-blue-500'
+                          } focus:border-transparent resize-none`}
                         />
+
+                        {/* Duplicate Check Result */}
+                        {questionsTH.trim().length > 5 && (
+                          <div className="mt-2">
+                            {isChecking ? (
+                              <p className="text-sm text-gray-500 flex items-center gap-2">
+                                <span className="inline-block w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></span>
+                                กำลังตรวจสอบ...
+                              </p>
+                            ) : isDuplicate ? (
+                              <p className="text-sm text-red-600 flex items-center gap-2">
+                                <FaExclamationTriangle />
+                                คำถามนี้มีอยู่ในระบบแล้ว กรุณาเปลี่ยนคำถาม
+                              </p>
+                            ) : (
+                              <p className="text-sm text-green-600 flex items-center gap-2">
+                                <FaCheckCircle />
+                                คำถามนี้ยังไม่มีในระบบ
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -270,10 +324,15 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={submitting || (feedbackType === 'improvement' && selectedGameId !== 'BWLxJkh45e6RiALRBmcl')}
+                disabled={
+                  submitting ||
+                  (feedbackType === 'improvement' && selectedGameId !== 'BWLxJkh45e6RiALRBmcl') ||
+                  (feedbackType === 'improvement' && isDuplicate) ||
+                  isChecking
+                }
                 className="w-full bg-gradient-to-br from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 shadow-lg"
               >
-                {submitting ? 'กำลังส่ง...' : 'ส่งข้อมูล'}
+                {submitting ? 'กำลังส่ง...' : isChecking ? 'กำลังตรวจสอบ...' : 'ส่งข้อมูล'}
               </button>
             </form>
           )}
