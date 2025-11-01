@@ -16,7 +16,7 @@ export interface AgeData {
  * บันทึกอายุลง localStorage
  */
 export function saveAge(age: number): void {
-  if (age < 1 || age > 120) {
+  if (age < 1 || age > 100) {
     throw new Error('อายุไม่ถูกต้อง');
   }
 

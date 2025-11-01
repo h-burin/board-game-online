@@ -104,6 +104,15 @@ service cloud.firestore {
     }
 
     // =========================================
+    // User Ages Collection (NEW)
+    // =========================================
+    match /user_ages/{ageId} {
+      allow read: if request.auth != null; // admin เท่านั้น
+      allow create: if true; // อนุญาตให้ทุกคนสร้างข้อมูลอายุได้
+      allow update, delete: if false; // ไม่อนุญาตให้แก้ไขหรือลบ
+    }
+
+    // =========================================
     // Game Sessions Collection
     // =========================================
     match /game_sessions/{sessionId} {

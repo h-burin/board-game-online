@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { saveAge, shouldAskAge } from '@/lib/utils/ageStorage';
+import { saveAgeToFirebase } from '@/lib/firebase/age';
 
 export default function AgeModal() {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,7 +17,7 @@ export default function AgeModal() {
     }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -28,15 +29,23 @@ export default function AgeModal() {
       return;
     }
 
-    if (ageNum < 1 || ageNum > 120) {
-      setError('กรุณากรอกอายุระหว่าง 1-120 ปี');
+    if (ageNum < 1 || ageNum > 100) {
+      setError('กรุณากรอกอายุระหว่าง 1-100 ปี');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      // บันทึกลง localStorage
       saveAge(ageNum);
+
+      // บันทึกลง Firebase (ไม่รอผลลัพธ์ เพื่อให้ UX ไหลลื่น)
+      saveAgeToFirebase(ageNum).catch((error) => {
+        console.error('Failed to save age to Firebase:', error);
+        // ไม่แสดง error ให้ user เพราะข้อมูลถูกเก็บใน localStorage แล้ว
+      });
+
       setIsOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
