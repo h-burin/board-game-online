@@ -39,18 +39,92 @@ export async function submitFeedback(feedback: Omit<Feedback, 'id' | 'createdAt'
 }
 
 /**
- * Check if Ito question already exists
+ * Calculate similarity between two strings (0-1)
+ * Uses Levenshtein distance and length ratio
  */
-export async function checkDuplicateItoQuestion(questionsTH: string): Promise<boolean> {
+function calculateSimilarity(str1: string, str2: string): number {
+  const s1 = str1.toLowerCase().trim();
+  const s2 = str2.toLowerCase().trim();
+
+  // Exact match
+  if (s1 === s2) return 1;
+
+  // Length difference check
+  const lengthDiff = Math.abs(s1.length - s2.length);
+  const maxLength = Math.max(s1.length, s2.length);
+  const lengthRatio = 1 - (lengthDiff / maxLength);
+
+  // If length difference is too large, not similar
+  if (lengthRatio < 0.7) return 0;
+
+  // Levenshtein distance
+  const matrix: number[][] = [];
+  for (let i = 0; i <= s2.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= s1.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  const distance = matrix[s2.length][s1.length];
+  const similarity = 1 - (distance / maxLength);
+
+  return similarity;
+}
+
+/**
+ * Check if Ito question already exists or is too similar
+ * Returns: { isDuplicate: boolean, similarQuestion?: string, similarity?: number }
+ */
+export async function checkDuplicateItoQuestion(
+  questionsTH: string
+): Promise<{ isDuplicate: boolean; similarQuestion?: string; similarity?: number }> {
   try {
     const questionsRef = collection(db, 'ito_questions');
-    const q = query(questionsRef, where('questionsTH', '==', questionsTH.trim()));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(questionsRef);
 
-    return !snapshot.empty;
+    const inputQuestion = questionsTH.trim().toLowerCase();
+    const SIMILARITY_THRESHOLD = 0.85; // 85% similarity threshold
+
+    let maxSimilarity = 0;
+    let mostSimilarQuestion = '';
+
+    snapshot.forEach((doc) => {
+      const existingQuestion = doc.data().questionsTH as string;
+      const similarity = calculateSimilarity(inputQuestion, existingQuestion);
+
+      if (similarity > maxSimilarity) {
+        maxSimilarity = similarity;
+        mostSimilarQuestion = existingQuestion;
+      }
+    });
+
+    if (maxSimilarity >= SIMILARITY_THRESHOLD) {
+      return {
+        isDuplicate: true,
+        similarQuestion: mostSimilarQuestion,
+        similarity: Math.round(maxSimilarity * 100),
+      };
+    }
+
+    return { isDuplicate: false };
   } catch (error) {
     console.error('❌ Error checking duplicate question:', error);
-    return false;
+    return { isDuplicate: false };
   }
 }
 

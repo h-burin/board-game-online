@@ -32,6 +32,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
   // Duplicate check
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [similarQuestion, setSimilarQuestion] = useState<string>('');
+  const [similarity, setSimilarity] = useState<number>(0);
 
   const resetForm = () => {
     setStep('select-type');
@@ -43,6 +45,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     setUserName('');
     setIsDuplicate(false);
     setIsChecking(false);
+    setSimilarQuestion('');
+    setSimilarity(0);
     setSuccess(false);
   };
 
@@ -66,6 +70,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
       setUserName('');
       setIsDuplicate(false);
       setIsChecking(false);
+      setSimilarQuestion('');
+      setSimilarity(0);
     }
   };
 
@@ -74,8 +80,10 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     if (feedbackType === 'improvement' && selectedGameId === 'BWLxJkh45e6RiALRBmcl' && questionsTH.trim().length > 5) {
       const timeoutId = setTimeout(async () => {
         setIsChecking(true);
-        const duplicate = await checkDuplicateItoQuestion(questionsTH);
-        setIsDuplicate(duplicate);
+        const result = await checkDuplicateItoQuestion(questionsTH);
+        setIsDuplicate(result.isDuplicate);
+        setSimilarQuestion(result.similarQuestion || '');
+        setSimilarity(result.similarity || 0);
         setIsChecking(false);
       }, 500); // Debounce 500ms
 
@@ -83,6 +91,8 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
     } else {
       setIsDuplicate(false);
       setIsChecking(false);
+      setSimilarQuestion('');
+      setSimilarity(0);
     }
   }, [questionsTH, feedbackType, selectedGameId]);
 
@@ -253,15 +263,9 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               ) : (
                 // Improvement Form (Ito Question)
                 <>
-                  {selectedGameId && selectedGameId !== 'BWLxJkh45e6RiALRBmcl' && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="text-yellow-800 text-sm">
-                        ขณะนี้รองรับการเพิ่มโจทย์เฉพาะเกม <strong>Ito</strong> เท่านั้น
-                      </p>
-                    </div>
-                  )}
-
-                  {(!selectedGameId || selectedGameId === 'BWLxJkh45e6RiALRBmcl') && (
+                  {/* Show form fields based on selected game */}
+                  {selectedGameId === 'BWLxJkh45e6RiALRBmcl' ? (
+                    // Ito game form
                     <>
                       <div>
                         <label className="block text-gray-700 font-semibold mb-2">
@@ -271,7 +275,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                           type="text"
                           value={userName}
                           onChange={(e) => setUserName(e.target.value)}
-                          required={selectedGameId === 'BWLxJkh45e6RiALRBmcl'}
+                          required
                           placeholder="ชื่อหรือชื่อเล่น"
                           className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
@@ -284,7 +288,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                         <textarea
                           value={questionsTH}
                           onChange={(e) => setQuestionsTH(e.target.value)}
-                          required={selectedGameId === 'BWLxJkh45e6RiALRBmcl'}
+                          required
                           rows={3}
                           placeholder="เช่น ความสูงของต้นไม้ที่คุณชอบ, ความร้อนของกาแฟที่เหมาะสม"
                           className={`w-full px-4 py-3 rounded-lg border ${
@@ -303,10 +307,18 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                                 กำลังตรวจสอบ...
                               </p>
                             ) : isDuplicate ? (
-                              <p className="text-sm text-red-600 flex items-center gap-2">
-                                <FaExclamationTriangle />
-                                คำถามนี้มีอยู่ในระบบแล้ว กรุณาเปลี่ยนคำถาม
-                              </p>
+                              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <p className="text-sm text-red-700 font-semibold flex items-center gap-2 mb-2">
+                                  <FaExclamationTriangle />
+                                  พบคำถามที่คล้ายกัน {similarity}%
+                                </p>
+                                <p className="text-sm text-red-600 pl-5">
+                                  "{similarQuestion}"
+                                </p>
+                                <p className="text-xs text-red-500 pl-5 mt-1">
+                                  กรุณาเปลี่ยนคำถามให้แตกต่างมากขึ้น
+                                </p>
+                              </div>
                             ) : (
                               <p className="text-sm text-green-600 flex items-center gap-2">
                                 <FaCheckCircle />
@@ -317,7 +329,14 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                         )}
                       </div>
                     </>
-                  )}
+                  ) : selectedGameId ? (
+                    // Other games - not supported yet
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-yellow-800 text-sm">
+                        ขณะนี้รองรับการเพิ่มโจทย์เฉพาะเกม <strong>Ito</strong> เท่านั้น
+                      </p>
+                    </div>
+                  ) : null}
                 </>
               )}
 
