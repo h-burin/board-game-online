@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Kanit } from "next/font/google";
 import "./globals.css";
+import AgeModal from "@/components/AgeModal";
 
 const kanit = Kanit({
   weight: ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
@@ -22,6 +23,7 @@ export default function RootLayout({
     <html lang="th" className={kanit.className}>
       <body>
         {children}
+        <AgeModal />
       </body>
     </html>
   );
