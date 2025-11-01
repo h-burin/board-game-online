@@ -11,7 +11,7 @@ import {
 import { db } from './config';
 
 export interface AgeSubmission {
-  age: number;
+  age: string | number; // รองรับทั้ง age range (string) และตัวเลข (number)
   timestamp?: any; // serverTimestamp
   userAgent?: string;
   platform?: string;
@@ -20,12 +20,8 @@ export interface AgeSubmission {
 /**
  * บันทึกข้อมูลอายุลง Firebase
  */
-export async function saveAgeToFirebase(age: number): Promise<string> {
+export async function saveAgeToFirebase(age: string | number): Promise<string> {
   try {
-    if (age < 1 || age > 100) {
-      throw new Error('อายุไม่ถูกต้อง (ต้องอยู่ระหว่าง 1-100)');
-    }
-
     const ageRef = collection(db, 'user_ages');
 
     // เพิ่มข้อมูล user agent และ platform

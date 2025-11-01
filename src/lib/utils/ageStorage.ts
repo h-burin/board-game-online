@@ -8,38 +8,33 @@ const AGE_TIMESTAMP_KEY = 'user_age_timestamp';
 const AGE_VALIDITY_DAYS = 30; // อายุข้อมูลหมดอายุใน 30 วัน
 
 export interface AgeData {
-  age: number;
+  age: string; // เปลี่ยนเป็น string เพื่อรองรับ age range เช่น "18-24"
   timestamp: number;
 }
 
 /**
  * บันทึกอายุลง localStorage
  */
-export function saveAge(age: number): void {
-  if (age < 1 || age > 100) {
-    throw new Error('อายุไม่ถูกต้อง');
-  }
+export function saveAge(age: string | number): void {
+  const ageStr = age.toString();
 
   const data: AgeData = {
-    age,
+    age: ageStr,
     timestamp: Date.now(),
   };
 
-  localStorage.setItem(AGE_STORAGE_KEY, age.toString());
+  localStorage.setItem(AGE_STORAGE_KEY, ageStr);
   localStorage.setItem(AGE_TIMESTAMP_KEY, data.timestamp.toString());
 }
 
 /**
  * ดึงข้อมูลอายุจาก localStorage
  */
-export function getAge(): number | null {
+export function getAge(): string | null {
   const ageStr = localStorage.getItem(AGE_STORAGE_KEY);
   if (!ageStr) return null;
 
-  const age = parseInt(ageStr, 10);
-  if (isNaN(age)) return null;
-
-  return age;
+  return ageStr;
 }
 
 /**

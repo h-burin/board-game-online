@@ -1,64 +1,57 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { saveAge, shouldAskAge } from '@/lib/utils/ageStorage';
 import { saveAgeToFirebase } from '@/lib/firebase/age';
 
+const AGE_RANGES = [
+  { label: 'ต่ำกว่า 18 ปี', value: '0-17', emoji: '👶' },
+  { label: '18-24 ปี', value: '18-24', emoji: '🎓' },
+  { label: '25-34 ปี', value: '25-34', emoji: '💼' },
+  { label: '35-44 ปี', value: '35-44', emoji: '👔' },
+  { label: '45-54 ปี', value: '45-54', emoji: '🎯' },
+  { label: '55 ปีขึ้นไป', value: '55+', emoji: '🌟' },
+];
+
 export default function AgeModal() {
   const [isOpen, setIsOpen] = useState(false);
-  const [age, setAge] = useState('');
+  const [selectedRange, setSelectedRange] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
+    // ไม่แสดง modal ในหน้า admin
+    const isAdminPage = pathname?.startsWith('/admin');
+
     // ตรวจสอบว่าต้องถามอายุหรือไม่
-    if (shouldAskAge()) {
+    if (!isAdminPage && shouldAskAge()) {
       setIsOpen(true);
     }
-  }, []);
+  }, [pathname]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSelectRange = async (range: string) => {
+    setSelectedRange(range);
     setError('');
-
-    const ageNum = parseInt(age, 10);
-
-    // Validation
-    if (isNaN(ageNum)) {
-      setError('กรุณากรอกอายุเป็นตัวเลข');
-      return;
-    }
-
-    if (ageNum < 1 || ageNum > 100) {
-      setError('กรุณากรอกอายุระหว่าง 1-100 ปี');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      // บันทึกลง localStorage
-      saveAge(ageNum);
+      // บันทึกลง localStorage (ใช้ช่วงอายุแทนตัวเลข)
+      saveAge(range);
 
       // บันทึกลง Firebase (ไม่รอผลลัพธ์ เพื่อให้ UX ไหลลื่น)
-      saveAgeToFirebase(ageNum).catch((error) => {
+      saveAgeToFirebase(range).catch((error) => {
         console.error('Failed to save age to Firebase:', error);
         // ไม่แสดง error ให้ user เพราะข้อมูลถูกเก็บใน localStorage แล้ว
       });
 
+      // รอนิดหนึ่งเพื่อให้เห็น animation
+      await new Promise(resolve => setTimeout(resolve, 300));
       setIsOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'เกิดข้อผิดพลาด');
-    } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleInputChange = (value: string) => {
-    // อนุญาตเฉพาะตัวเลข
-    if (value === '' || /^\d+$/.test(value)) {
-      setAge(value);
-      setError('');
     }
   };
 
@@ -79,57 +72,52 @@ export default function AgeModal() {
         </div>
 
         {/* Body */}
-        <form onSubmit={handleSubmit} className="p-8">
+        <div className="p-8">
           <div className="mb-6">
-            <label htmlFor="age" className="block text-gray-700 font-semibold mb-3 text-center">
-              อายุของคุณ (ปี)
-            </label>
+            <p className="text-gray-700 font-semibold mb-4 text-center">
+              เลือกช่วงอายุของคุณ
+            </p>
 
-            {/* Age Input with beautiful style */}
-            <div className="relative">
-              <input
-                type="text"
-                id="age"
-                value={age}
-                onChange={(e) => handleInputChange(e.target.value)}
-                placeholder="25"
-                autoFocus
-                className={`w-full text-center text-4xl font-bold py-6 rounded-2xl border-2 ${
-                  error ? 'border-red-500' : 'border-gray-300'
-                } focus:outline-none focus:ring-4 ${
-                  error ? 'focus:ring-red-200' : 'focus:ring-blue-200'
-                } focus:border-blue-500 transition-all`}
-                maxLength={3}
-              />
-              {age && (
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl text-gray-400">
-                  ปี
-                </div>
-              )}
+            {/* Age Range Cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {AGE_RANGES.map((range) => (
+                <button
+                  key={range.value}
+                  type="button"
+                  onClick={() => handleSelectRange(range.value)}
+                  disabled={isSubmitting}
+                  className={`p-4 rounded-xl border-2 transition-all transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-50 ${
+                    selectedRange === range.value
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:border-blue-300 bg-white'
+                  }`}
+                >
+                  <div className="text-3xl mb-2">{range.emoji}</div>
+                  <div className="text-sm font-semibold text-gray-800">
+                    {range.label}
+                  </div>
+                </button>
+              ))}
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="mt-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              <div className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
                 <p className="text-sm text-red-700 text-center">{error}</p>
               </div>
             )}
 
             {/* Info */}
-            <p className="mt-3 text-xs text-gray-500 text-center">
-              ข้อมูลจะถูกเก็บไว้ในเครื่องของคุณเท่านั้น
-            </p>
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-gray-500 text-center">
+                ข้อมูลจะถูกใช้เพื่อปรับปรุงเกมให้เหมาะสมกับทุกวัย
+              </p>
+              <p className="text-xs text-gray-400 text-center">
+                ไม่เชื่อมโยงกับตัวตน • เก็บในเครื่องของคุณ
+              </p>
+            </div>
           </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={!age || isSubmitting}
-            className="w-full bg-gradient-to-br from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl transition-all transform hover:scale-105 disabled:hover:scale-100 shadow-lg text-lg"
-          >
-            {isSubmitting ? 'กำลังบันทึก...' : 'ยืนยัน'}
-          </button>
-        </form>
+        </div>
 
         {/* Footer Note */}
         <div className="bg-gray-50 px-8 py-4 border-t border-gray-200">
