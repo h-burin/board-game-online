@@ -12,10 +12,8 @@ export function useAdminActivity() {
     // Check if user should be logged out due to inactivity
     const checkInactivity = () => {
       const lastActivity = localStorage.getItem('adminLastActivity');
-      const rememberMe = localStorage.getItem('adminRememberMe');
 
-      // Only check inactivity if remember me is enabled
-      if (rememberMe === 'true' && lastActivity) {
+      if (lastActivity) {
         const lastActivityTime = parseInt(lastActivity, 10);
         const now = Date.now();
         const timeSinceLastActivity = now - lastActivityTime;
@@ -30,10 +28,7 @@ export function useAdminActivity() {
 
     // Update last activity timestamp
     const updateActivity = () => {
-      const rememberMe = localStorage.getItem('adminRememberMe');
-      if (rememberMe === 'true') {
-        localStorage.setItem('adminLastActivity', Date.now().toString());
-      }
+      localStorage.setItem('adminLastActivity', Date.now().toString());
     };
 
     const handleLogout = async () => {

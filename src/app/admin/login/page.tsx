@@ -40,12 +40,13 @@ export default function AdminLoginPage() {
       if (rememberMe) {
         localStorage.setItem('adminEmail', email);
         localStorage.setItem('adminRememberMe', 'true');
-        // Set last activity timestamp
-        localStorage.setItem('adminLastActivity', Date.now().toString());
       } else {
         localStorage.removeItem('adminEmail');
         localStorage.removeItem('adminRememberMe');
       }
+
+      // Set last activity timestamp for all logins
+      localStorage.setItem('adminLastActivity', Date.now().toString());
 
       console.log('✅ Login successful');
       router.push('/admin');
