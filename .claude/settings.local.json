@@ -9,9 +9,7 @@
       "Bash(xargs:*)",
       "Bash(npm run build:*)",
       "Bash(node --version:*)",
-      "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)",
       "Bash(pkill -f \"next dev\")",
       "Bash(npm run dev)",
       "Bash(pkill -9 node)",
@@ -30,7 +28,9 @@
       "Bash(for file in PlayerStatusTracker MyNumbersDisplay GameHeader RevealedNumbersList)",
       "Bash(do echo \"=== Checking $file ===\")",
       "Bash(done)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx @firebase/rules-unit-testing@latest)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []
