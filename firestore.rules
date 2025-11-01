@@ -90,7 +90,17 @@ service cloud.firestore {
     // =========================================
     match /ito_questions/{questionId} {
       allow read: if true;
-      allow write: if request.auth != null; // เขียนได้เฉพาะ user ที่ login แล้ว
+      allow create: if true; // อนุญาตให้ทุกคนสร้างคำถามได้
+      allow update, delete: if request.auth != null; // admin เท่านั้น
+    }
+
+    // =========================================
+    // Feedback Collection (NEW)
+    // =========================================
+    match /feedback/{feedbackId} {
+      allow read: if request.auth != null; // admin เท่านั้น
+      allow create: if true; // อนุญาตให้ทุกคนสร้าง feedback ได้
+      allow update, delete: if request.auth != null; // admin เท่านั้น
     }
 
     // =========================================

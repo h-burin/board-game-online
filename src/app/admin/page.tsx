@@ -102,6 +102,24 @@ export default function AdminDashboardPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Quick Actions */}
+        <div className="mb-6 sm:mb-8">
+          <button
+            onClick={() => router.push('/admin/feedback')}
+            className="w-full bg-gradient-to-br from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white p-6 rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+          >
+            <div className="flex items-center gap-4">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+              <div className="text-left">
+                <h3 className="text-xl font-bold">Feedback</h3>
+                <p className="text-sm text-white/90">จัดการข้อเสนอแนะจากผู้ใช้</p>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {/* Page Header */}
         <div className="mb-6 sm:mb-8">
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">จัดการเกม</h2>

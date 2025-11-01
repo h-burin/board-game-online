@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { FaPlus, FaPeopleGroup, FaDice, FaUsers, FaGamepad } from "react-icons/fa6";
+import { FaPlus, FaPeopleGroup, FaDice, FaGamepad, FaComments } from "react-icons/fa6";
+import FeedbackModal from "@/components/FeedbackModal";
 
 export default function Home() {
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-600 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full space-y-6">
@@ -48,11 +51,14 @@ export default function Home() {
               <p className="text-white font-semibold text-sm md:text-base mb-1">หลากหลายเกม</p>
               <p className="text-slate-300 text-xs md:text-sm">เลือกเกมที่ชอบ</p>
             </div>
-            <div className="bg-white/5 rounded-xl p-3 md:p-4 text-center border border-white/10">
-              <FaUsers className="text-2xl md:text-3xl text-green-400 mx-auto mb-1 md:mb-2" />
-              <p className="text-white font-semibold text-sm md:text-base mb-1">เล่นกับเพื่อน</p>
-              <p className="text-slate-300 text-xs md:text-sm">สูงสุด 10 คน</p>
-            </div>
+            <button
+              onClick={() => setShowFeedbackModal(true)}
+              className="bg-white/5 hover:bg-white/10 rounded-xl p-3 md:p-4 text-center border border-white/10 hover:border-white/30 transition-all transform hover:scale-105 cursor-pointer"
+            >
+              <FaComments className="text-2xl md:text-3xl text-yellow-400 mx-auto mb-1 md:mb-2" />
+              <p className="text-white font-semibold text-sm md:text-base mb-1">ช่วยปรับปรุง</p>
+              <p className="text-slate-300 text-xs md:text-sm">แจ้งปัญหา/เพิ่มโจทย์</p>
+            </button>
             <div className="bg-white/5 rounded-xl p-3 md:p-4 text-center border border-white/10">
               <FaGamepad className="text-2xl md:text-3xl text-purple-400 mx-auto mb-1 md:mb-2" />
               <p className="text-white font-semibold text-sm md:text-base mb-1">เล่นง่าย</p>
@@ -76,6 +82,9 @@ export default function Home() {
           <p>เล่นได้ฟรี ไม่มีค่าใช้จ่าย</p>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      <FeedbackModal isOpen={showFeedbackModal} onClose={() => setShowFeedbackModal(false)} />
     </div>
   );
 }
