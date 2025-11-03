@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
+import { doc, getDoc } from "firebase/firestore";
 import { useItoGameLogs, useItoQuestions } from "@/lib/hooks/useItoGameLogs";
 import { useAdminActivity } from "@/lib/hooks/useAdminActivity";
 
@@ -13,6 +14,7 @@ export default function ItoGameLogsPage() {
   const gameId = params?.gameId as string;
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [gameName, setGameName] = useState<string>("Game");
   const { logs, loading: logsLoading } = useItoGameLogs();
   const { questions, loading: questionsLoading } = useItoQuestions();
 
@@ -64,6 +66,24 @@ export default function ItoGameLogsPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // Load game name
+  useEffect(() => {
+    if (!gameId) return;
+
+    const loadGameName = async () => {
+      try {
+        const gameDoc = await getDoc(doc(db, 'games', gameId));
+        if (gameDoc.exists()) {
+          setGameName(gameDoc.data().name || 'Game');
+        }
+      } catch (error) {
+        console.error('Error loading game name:', error);
+      }
+    };
+
+    loadGameName();
+  }, [gameId]);
 
   // Filtered questions for autocomplete
   const filteredQuestions = useMemo(() => {
@@ -262,7 +282,7 @@ export default function ItoGameLogsPage() {
                 </svg>
               </button>
               <h1 className="text-xl font-semibold text-gray-900">
-                ITO Game Logs
+                {gameName} Logs
               </h1>
             </div>
           </div>
