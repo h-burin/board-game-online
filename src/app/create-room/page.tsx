@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useGames } from "@/lib/hooks/useGames";
+import PlayerNameInput from "./components/PlayerNameInput";
+import GameSelector from "./components/GameSelector";
+import MaxPlayersSelector from "./components/MaxPlayersSelector";
+import TimeLimitInput from "./components/TimeLimitInput";
+import RulesModal from "./components/RulesModal";
 
 // API Response Types
 interface CreateRoomResponse {
@@ -31,6 +36,7 @@ export default function CreateRoomPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   // Get selected game details
   const selectedGame = games.find((game) => game.id === formData.gameId);
@@ -59,8 +65,7 @@ export default function CreateRoomPage() {
     }
   }, [selectedGame]);
 
-  const handlePlayerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  const handlePlayerNameChange = (value: string) => {
     setFormData({ ...formData, playerName: value });
 
     // Validation
@@ -73,8 +78,7 @@ export default function CreateRoomPage() {
     }
   };
 
-  const handleGameChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const gameId = e.target.value;
+  const handleGameChange = (gameId: string) => {
     setFormData({ ...formData, gameId });
 
     // Validation
@@ -85,12 +89,11 @@ export default function CreateRoomPage() {
     }
   };
 
-  const handleMaxPlayersChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setFormData({ ...formData, maxPlayers: parseInt(e.target.value) });
+  const handleMaxPlayersChange = (value: number) => {
+    setFormData({ ...formData, maxPlayers: value });
   };
 
-  const handleTimeLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
+  const handleTimeLimitChange = (value: number) => {
     setFormData({ ...formData, timeLimit: value });
   };
 
@@ -197,180 +200,40 @@ export default function CreateRoomPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {/* Player Name Input */}
-            <div>
-              <label
-                htmlFor="playerName"
-                className="block text-white text-base md:text-lg font-semibold mb-2"
-              >
-                ชื่อผู้เล่น <span className="text-red-400">*</span>
-              </label>
-              <input
-                type="text"
-                id="playerName"
-                value={formData.playerName}
-                onChange={handlePlayerNameChange}
-                placeholder="ใส่ชื่อของคุณ"
-                maxLength={20}
-                disabled={isLoading}
-                className={`w-full px-4 py-3 rounded-xl bg-white/20 border-2 ${
-                  errors.playerName ? "border-red-500" : "border-white/30"
-                } text-white placeholder-white/50 focus:outline-none focus:border-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-              />
-              <div className="flex justify-between mt-2">
-                {errors.playerName && (
-                  <p className="text-red-400 text-xs md:text-sm">
-                    {errors.playerName}
-                  </p>
-                )}
-                <p className="text-white/60 text-xs md:text-sm ml-auto">
-                  {formData.playerName.length}/20
-                </p>
-              </div>
-            </div>
+            <PlayerNameInput
+              value={formData.playerName}
+              onChange={handlePlayerNameChange}
+              error={errors.playerName}
+              disabled={isLoading}
+            />
 
             {/* Game Selection Dropdown */}
-            <div>
-              <label
-                htmlFor="gameId"
-                className="block text-white text-base md:text-lg font-semibold mb-2"
-              >
-                เลือกเกม <span className="text-red-400">*</span>
-              </label>
-              {gamesLoading ? (
-                <div className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white/50 flex items-center justify-center">
-                  <svg
-                    className="animate-spin h-5 w-5 mr-2"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  กำลังโหลดรายการเกม...
-                </div>
-              ) : gamesError ? (
-                <div className="w-full px-4 py-3 rounded-xl bg-red-500/20 border-2 border-red-500/50 text-red-200">
-                  {gamesError}
-                </div>
-              ) : (
-                <select
-                  id="gameId"
-                  value={formData.gameId}
-                  onChange={handleGameChange}
-                  disabled={isLoading || games.length === 0}
-                  className={`w-full px-4 py-3 rounded-xl bg-white/20 border-2 ${
-                    errors.gameId ? "border-red-500" : "border-white/30"
-                  } text-white focus:outline-none focus:border-green-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <option value="" className="bg-gray-900">
-                    -- เลือกเกม --
-                  </option>
-                  {games.map((game) => (
-                    <option
-                      key={game.id}
-                      value={game.id}
-                      className="bg-gray-900"
-                    >
-                      {game.name} ({game.minPlayer}-{game.maxPlayer} คน)
-                    </option>
-                  ))}
-                </select>
-              )}
-              {errors.gameId && (
-                <p className="text-red-400 text-xs md:text-sm mt-2">
-                  {errors.gameId}
-                </p>
-              )}
-            </div>
+            <GameSelector
+              games={games}
+              selectedGameId={formData.gameId}
+              onChange={handleGameChange}
+              onShowRules={() => setShowRulesModal(true)}
+              error={errors.gameId}
+              loading={gamesLoading}
+              disabled={isLoading}
+              gamesError={gamesError}
+            />
 
             {/* Max Players Dropdown */}
-            <div>
-              <label
-                htmlFor="maxPlayers"
-                className="block text-white text-base md:text-lg font-semibold mb-2"
-              >
-                จำนวนผู้เล่นสูงสุด
-              </label>
-              <select
-                id="maxPlayers"
-                value={formData.maxPlayers}
-                onChange={handleMaxPlayersChange}
-                disabled={isLoading || !selectedGame}
-                className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white focus:outline-none focus:border-green-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {selectedGame ? (
-                  // Generate options based on selected game's minPlayer - maxPlayer
-                  Array.from(
-                    {
-                      length:
-                        selectedGame.maxPlayer - selectedGame.minPlayer + 1,
-                    },
-                    (_, i) => selectedGame.minPlayer + i
-                  ).map((num) => (
-                    <option key={num} value={num} className="bg-gray-900">
-                      {num} คน
-                    </option>
-                  ))
-                ) : (
-                  <option value={4} className="bg-gray-900">
-                    กรุณาเลือกเกมก่อน
-                  </option>
-                )}
-              </select>
-              {selectedGame && (
-                <p className="text-green-200 text-sm mt-2">
-                  เกมนี้รองรับ {selectedGame.minPlayer}-{selectedGame.maxPlayer}{" "}
-                  คน
-                  {selectedGame.maxPlayer > 20 && (
-                    <span className="text-yellow-300 ml-2">
-                      (⚠️ จำนวนผู้เล่นสูงมาก โปรดตรวจสอบข้อมูลเกม)
-                    </span>
-                  )}
-                </p>
-              )}
-            </div>
+            <MaxPlayersSelector
+              value={formData.maxPlayers}
+              onChange={handleMaxPlayersChange}
+              selectedGame={selectedGame}
+              disabled={isLoading}
+            />
 
             {/* Time Limit Input - Show only if game supports custom time */}
-            {selectedGame?.enableCustomTime && (
-              <div>
-                <label
-                  htmlFor="timeLimit"
-                  className="block text-white text-base md:text-lg font-semibold mb-2"
-                >
-                  เวลาเล่น (นาที)
-                </label>
-                <input
-                  type="number"
-                  id="timeLimit"
-                  value={formData.timeLimit}
-                  onChange={handleTimeLimitChange}
-                  min={1}
-                  max={120}
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 rounded-xl bg-white/20 border-2 border-white/30 text-white placeholder-white/50 focus:outline-none focus:border-green-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <p className="text-green-200 text-sm mt-2">
-                  ค่าเริ่มต้น: {selectedGame.defaultTimeMinutes || 10} นาที
-                  {selectedGame.defaultTimeMinutes && (
-                    <span className="text-white/60 ml-2">
-                      (ระบุ 1-120 นาที)
-                    </span>
-                  )}
-                </p>
-              </div>
-            )}
+            <TimeLimitInput
+              value={formData.timeLimit}
+              onChange={handleTimeLimitChange}
+              selectedGame={selectedGame}
+              disabled={isLoading}
+            />
 
             {/* Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -436,6 +299,13 @@ export default function CreateRoomPage() {
           </div>
         </div>
       </div>
+
+      {/* Rules Modal */}
+      <RulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        gameName={selectedGame?.name || 'Ito'}
+      />
     </div>
   );
 }
