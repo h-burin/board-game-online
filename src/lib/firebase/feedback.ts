@@ -137,9 +137,9 @@ export async function submitItoQuestion(
 ): Promise<string> {
   try {
     // ตรวจสอบคำถามซ้ำ
-    const isDuplicate = await checkDuplicateItoQuestion(questionsTH);
-    if (isDuplicate) {
-      throw new Error('คำถามนี้มีอยู่ในระบบแล้ว');
+    const duplicateCheck = await checkDuplicateItoQuestion(questionsTH);
+    if (duplicateCheck.isDuplicate) {
+      throw new Error(`คำถามนี้คล้ายกับคำถามที่มีอยู่แล้ว: "${duplicateCheck.similarQuestion}" (${duplicateCheck.similarity}%)`);
     }
 
     const questionsRef = collection(db, 'ito_questions');
