@@ -8,6 +8,8 @@ export interface ItoGameLog {
   ageRange: string | null;
   number: number;
   answer: string;
+  isEdited: boolean;
+  previousAnswer: string | null;
   createdAt: any;
 }
 

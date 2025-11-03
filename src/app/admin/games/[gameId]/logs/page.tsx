@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase/config";
@@ -20,6 +20,12 @@ export default function ItoGameLogsPage() {
   const [selectedAgeRange, setSelectedAgeRange] = useState<string>("all");
   const [selectedQuestion, setSelectedQuestion] = useState<string>("all");
   const [selectedNumberRange, setSelectedNumberRange] = useState<string>("all");
+  const [selectedEditStatus, setSelectedEditStatus] = useState<string>("all");
+
+  // Question autocomplete
+  const [questionSearchTerm, setQuestionSearchTerm] = useState<string>("");
+  const [showQuestionDropdown, setShowQuestionDropdown] = useState<boolean>(false);
+  const questionDropdownRef = useRef<HTMLDivElement>(null);
 
   // Expanded question for drill-down
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
@@ -27,6 +33,23 @@ export default function ItoGameLogsPage() {
   );
 
   useAdminActivity();
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        questionDropdownRef.current &&
+        !questionDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowQuestionDropdown(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Check authentication
   useEffect(() => {
@@ -41,6 +64,16 @@ export default function ItoGameLogsPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // Filtered questions for autocomplete
+  const filteredQuestions = useMemo(() => {
+    if (!questionSearchTerm) return Object.entries(questions);
+
+    const search = questionSearchTerm.toLowerCase();
+    return Object.entries(questions).filter(([, text]) =>
+      text.toLowerCase().includes(search)
+    );
+  }, [questions, questionSearchTerm]);
 
   // Filter logs
   const filteredLogs = useMemo(() => {
@@ -62,9 +95,13 @@ export default function ItoGameLogsPage() {
         if (selectedNumberRange === "76-100" && (num < 76 || num > 100))
           return false;
       }
+      if (selectedEditStatus !== "all") {
+        if (selectedEditStatus === "original" && log.isEdited) return false;
+        if (selectedEditStatus === "edited" && !log.isEdited) return false;
+      }
       return true;
     });
-  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange]);
+  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange, selectedEditStatus]);
 
   // Analytics calculations
   const analytics = useMemo(() => {
@@ -89,6 +126,8 @@ export default function ItoGameLogsPage() {
           answer: string;
           ageRange: string | null;
           number: number;
+          isEdited: boolean;
+          previousAnswer: string | null;
         }>;
       };
     } = {};
@@ -106,6 +145,8 @@ export default function ItoGameLogsPage() {
         answer: log.answer,
         ageRange: log.ageRange,
         number: log.number,
+        isEdited: log.isEdited,
+        previousAnswer: log.previousAnswer,
       });
     });
 
@@ -163,6 +204,15 @@ export default function ItoGameLogsPage() {
       questionDiversity[qId] = Math.round((uniqueAnswers / data.count) * 100);
     });
 
+    // 7. สถิติการแก้ไขคำตอบ
+    const editStats = {
+      totalEdited: filteredLogs.filter((log) => log.isEdited).length,
+      totalOriginal: filteredLogs.filter((log) => !log.isEdited).length,
+      editPercentage: Math.round(
+        (filteredLogs.filter((log) => log.isEdited).length / totalAnswers) * 100
+      ),
+    };
+
     return {
       totalAnswers,
       byAgeRange,
@@ -170,6 +220,7 @@ export default function ItoGameLogsPage() {
       byNumberRange,
       topAnswers,
       questionDiversity,
+      editStats,
     };
   }, [filteredLogs]);
 
@@ -225,7 +276,7 @@ export default function ItoGameLogsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-4">
             ตัวกรองข้อมูล
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Age Range Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -247,23 +298,78 @@ export default function ItoGameLogsPage() {
               </select>
             </div>
 
-            {/* Question Filter */}
-            <div>
+            {/* Question Filter - Autocomplete */}
+            <div className="relative" ref={questionDropdownRef}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 โจทย์
               </label>
-              <select
-                value={selectedQuestion}
-                onChange={(e) => setSelectedQuestion(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">ทั้งหมด</option>
-                {Object.entries(questions).map(([id, text]) => (
-                  <option key={id} value={id}>
-                    {text.substring(0, 50)}...
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={
+                    selectedQuestion === "all"
+                      ? questionSearchTerm
+                      : questions[selectedQuestion] || ""
+                  }
+                  onChange={(e) => {
+                    setQuestionSearchTerm(e.target.value);
+                    setSelectedQuestion("all");
+                    setShowQuestionDropdown(true);
+                  }}
+                  onFocus={() => setShowQuestionDropdown(true)}
+                  placeholder="พิมพ์เพื่อค้นหาโจทย์..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {(selectedQuestion !== "all" || questionSearchTerm) && (
+                  <button
+                    onClick={() => {
+                      setSelectedQuestion("all");
+                      setQuestionSearchTerm("");
+                      setShowQuestionDropdown(false);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown */}
+              {showQuestionDropdown && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div
+                    onClick={() => {
+                      setSelectedQuestion("all");
+                      setQuestionSearchTerm("");
+                      setShowQuestionDropdown(false);
+                    }}
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-200 font-medium"
+                  >
+                    ทั้งหมด
+                  </div>
+                  {filteredQuestions.length > 0 ? (
+                    filteredQuestions.map(([id, text]) => (
+                      <div
+                        key={id}
+                        onClick={() => {
+                          setSelectedQuestion(id);
+                          setQuestionSearchTerm("");
+                          setShowQuestionDropdown(false);
+                        }}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="text-sm text-gray-900">{text}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      ไม่พบโจทย์ที่ตรงกับคำค้นหา
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Number Range Filter */}
@@ -283,17 +389,38 @@ export default function ItoGameLogsPage() {
                 <option value="76-100">76-100</option>
               </select>
             </div>
+
+            {/* Edit Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                สถานะคำตอบ
+              </label>
+              <select
+                value={selectedEditStatus}
+                onChange={(e) => setSelectedEditStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="original">คำตอบแรก</option>
+                <option value="edited">แก้ไขแล้ว</option>
+              </select>
+            </div>
           </div>
 
           {/* Reset Filters */}
           {(selectedAgeRange !== "all" ||
             selectedQuestion !== "all" ||
-            selectedNumberRange !== "all") && (
+            selectedNumberRange !== "all" ||
+            selectedEditStatus !== "all" ||
+            questionSearchTerm) && (
             <button
               onClick={() => {
                 setSelectedAgeRange("all");
                 setSelectedQuestion("all");
                 setSelectedNumberRange("all");
+                setSelectedEditStatus("all");
+                setQuestionSearchTerm("");
+                setShowQuestionDropdown(false);
               }}
               className="mt-4 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
@@ -344,6 +471,21 @@ export default function ItoGameLogsPage() {
                   <p className="text-4xl font-bold">
                     {analytics.totalAnswers.toLocaleString()}
                   </p>
+                </div>
+              </div>
+              {/* Edit Stats Mini Cards */}
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">คำตอบแรก</p>
+                  <p className="text-2xl font-bold">{analytics.editStats.totalOriginal}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">แก้ไขแล้ว</p>
+                  <p className="text-2xl font-bold">{analytics.editStats.totalEdited}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">% แก้ไข</p>
+                  <p className="text-2xl font-bold">{analytics.editStats.editPercentage}%</p>
                 </div>
               </div>
             </div>
@@ -402,11 +544,13 @@ export default function ItoGameLogsPage() {
                     ).toFixed(1);
                     const isExpanded = expandedQuestionId === qId;
 
-                    // Group answers by answer text with age ranges
+                    // Group answers by answer text with age ranges and edit info
                     const answerGroups: {
                       [answer: string]: Array<{
                         ageRange: string | null;
                         number: number;
+                        isEdited: boolean;
+                        previousAnswer: string | null;
                       }>;
                     } = {};
                     data.answerDetails.forEach((detail) => {
@@ -417,6 +561,8 @@ export default function ItoGameLogsPage() {
                       answerGroups[answerKey].push({
                         ageRange: detail.ageRange,
                         number: detail.number,
+                        isEdited: detail.isEdited,
+                        previousAnswer: detail.previousAnswer,
                       });
                     });
 
@@ -501,19 +647,51 @@ export default function ItoGameLogsPage() {
                                   const minNumber = numbers[0];
                                   const maxNumber = numbers[numbers.length - 1];
 
+                                  // Check for edits
+                                  const editedCount = details.filter((d) => d.isEdited).length;
+                                  const hasEdits = editedCount > 0;
+
+                                  // Group previous answers if edited
+                                  const previousAnswers = new Set(
+                                    details
+                                      .filter((d) => d.isEdited && d.previousAnswer)
+                                      .map((d) => d.previousAnswer!)
+                                  );
+
                                   return (
                                     <div
                                       key={idx}
-                                      className="bg-white rounded-lg p-4 border border-gray-200"
+                                      className={`bg-white rounded-lg p-4 border-2 ${
+                                        hasEdits ? "border-orange-300" : "border-gray-200"
+                                      }`}
                                     >
                                       {/* Answer Text */}
                                       <div className="text-center mb-3">
-                                        <p className="text-base font-semibold text-gray-900">
-                                          "{answer}"
-                                        </p>
+                                        <div className="flex items-center justify-center gap-2">
+                                          <p className="text-base font-semibold text-gray-900">
+                                            &quot;{answer}&quot;
+                                          </p>
+                                          {hasEdits && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                              แก้ไข {editedCount}x
+                                            </span>
+                                          )}
+                                        </div>
                                         <p className="text-xs text-gray-500 mt-1">
                                           ถูกใช้ {details.length} ครั้ง
                                         </p>
+                                        {/* Show previous answers if edited */}
+                                        {hasEdits && previousAnswers.size > 0 && (
+                                          <div className="mt-2 text-xs text-gray-600">
+                                            <span className="font-medium">แก้ไขจาก:</span>{" "}
+                                            {Array.from(previousAnswers).map((prev, i) => (
+                                              <span key={i}>
+                                                {i > 0 && ", "}
+                                                <span className="italic">&quot;{prev}&quot;</span>
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
 
                                       {/* Stats Grid - 3 columns */}

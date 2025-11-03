@@ -493,15 +493,20 @@ async function cleanupPlayerAnswers(sessionId: string): Promise<void> {
 
 /**
  * บันทึก log การเล่นเกมลง ito_game_logs
+ * รองรับการเก็บ log แยกสำหรับคำตอบแรกและการแก้ไข
  */
 async function logPlayerAnswer(
   questionId: string,
   number: number,
-  answer: string
+  answer: string,
+  previousAnswer?: string | null
 ): Promise<void> {
   try {
     // ดึงอายุจาก localStorage (ถ้ามี)
     const ageRange = typeof window !== 'undefined' ? getAge() : null;
+
+    // ตรวจสอบว่าเป็นการแก้ไขหรือไม่
+    const isEdited = previousAnswer !== undefined && previousAnswer !== null && previousAnswer !== '';
 
     const logsRef = collection(db, 'ito_game_logs');
     await addDoc(logsRef, {
@@ -509,10 +514,22 @@ async function logPlayerAnswer(
       ageRange,
       number,
       answer,
+      isEdited,
+      previousAnswer: isEdited ? previousAnswer : null,
       createdAt: serverTimestamp(),
     });
 
-    console.log('📊 Game log saved:', { questionId, ageRange, number, answer });
+    if (isEdited) {
+      console.log('📊 Game log saved (EDITED):', {
+        questionId,
+        ageRange,
+        number,
+        previousAnswer: previousAnswer,
+        newAnswer: answer
+      });
+    } else {
+      console.log('📊 Game log saved (ORIGINAL):', { questionId, ageRange, number, answer });
+    }
   } catch (error) {
     // ไม่ throw error เพราะไม่ต้องการให้ log ล้มเหลวทำให้เกมหยุด
     console.error('⚠️ Failed to log player answer (non-critical):', error);
@@ -533,6 +550,10 @@ export async function submitPlayerAnswer(
     const docId = `${playerId}_${answerIndex}`;
     const answerRef = doc(db, `game_sessions/${sessionId}/player_answers`, docId);
 
+    // ดึงข้อมูลคำตอบเดิมก่อนอัปเดต (เพื่อเช็คว่าเป็นการแก้ไขหรือไม่)
+    const answerSnapBefore = await getDoc(answerRef);
+    const previousAnswer = answerSnapBefore.exists() ? answerSnapBefore.data().answer : null;
+
     await updateDoc(answerRef, {
       answer: answer,
       submittedAt: serverTimestamp(),
@@ -548,10 +569,12 @@ export async function submitPlayerAnswer(
       const playerAnswer = answerSnap.data();
 
       // บันทึก log (async, ไม่รอผลลัพธ์)
+      // ส่ง previousAnswer เพื่อให้รู้ว่าเป็นการแก้ไขหรือไม่
       logPlayerAnswer(
         gameState.questionId,
         playerAnswer.number,
-        answer
+        answer,
+        previousAnswer
       ).catch((err) => console.error('Log error:', err));
     }
 
@@ -560,6 +583,7 @@ export async function submitPlayerAnswer(
       playerId,
       answerIndex,
       answer,
+      previousAnswer: previousAnswer || '(none)',
     });
     return true;
   } catch (error) {
