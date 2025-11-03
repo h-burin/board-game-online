@@ -1,6 +1,7 @@
 /**
- * Custom Hook: useGames
- * ดึงรายการเกมทั้งหมดจาก games collection
+ * Custom Hook: useAllGames
+ * ดึงรายการเกมทั้งหมดจาก games collection (รวมเกมที่ไม่ active)
+ * ใช้สำหรับหน้า Admin เท่านั้น
  * Listen แบบ real-time จาก Firestore
  */
 
@@ -11,13 +12,13 @@ import { collection, query, orderBy, onSnapshot, DocumentData } from 'firebase/f
 import { db } from '@/lib/firebase/config';
 import { Game } from '@/types';
 
-interface UseGamesResult {
+interface UseAllGamesResult {
   games: Game[];
   loading: boolean;
   error: string | null;
 }
 
-export function useGames(): UseGamesResult {
+export function useAllGames(): UseAllGamesResult {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,10 +54,8 @@ export function useGames(): UseGamesResult {
             updatedAt: data.updatedAt?.toDate(),
           };
 
-          // Only include active games
-          if (game.isActive) {
-            gamesData.push(game);
-          }
+          // Include ALL games (both active and inactive) for admin
+          gamesData.push(game);
         });
 
         setGames(gamesData);

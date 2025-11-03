@@ -14,6 +14,7 @@ interface Game {
   imageUrl?: string;
   minPlayer: number;
   maxPlayer: number;
+  isActive?: boolean;
 }
 
 export default function GameManagementPage() {
@@ -26,6 +27,7 @@ export default function GameManagementPage() {
   const [game, setGame] = useState<Game | null>(null);
   const [minPlayer, setMinPlayer] = useState<number>(1);
   const [maxPlayer, setMaxPlayer] = useState<number>(1);
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
 
   // Track admin activity and auto-logout after 8 hours of inactivity
@@ -57,6 +59,7 @@ export default function GameManagementPage() {
           setGame(gameData);
           setMinPlayer(gameData.minPlayer ?? 1);
           setMaxPlayer(gameData.maxPlayer ?? 1);
+          setIsActive(gameData.isActive ?? true);
         } else {
           alert('ไม่พบข้อมูลเกม');
           router.push('/admin');
@@ -90,6 +93,7 @@ export default function GameManagementPage() {
       await updateDoc(doc(db, 'games', gameId), {
         minPlayer: minPlayer,
         maxPlayer: maxPlayer,
+        isActive: isActive,
       });
       alert('บันทึกสำเร็จ');
     } catch (error) {
@@ -191,6 +195,34 @@ export default function GameManagementPage() {
               />
             </div>
 
+            {/* Game Active Status */}
+            <div>
+              <label className="block text-gray-700 text-sm font-medium mb-2">สถานะเกม</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                    isActive ? 'bg-green-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                      isActive ? 'translate-x-7' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+                <span className={`text-sm font-medium ${isActive ? 'text-green-700' : 'text-gray-600'}`}>
+                  {isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {isActive
+                  ? 'ผู้เล่นสามารถเลือกเกมนี้ได้'
+                  : 'ผู้เล่นไม่สามารถเลือกเกมนี้ได้ (จะไม่แสดงในหน้าสร้างห้อง)'}
+              </p>
+            </div>
+
             {/* Current Range Display */}
             <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
               <p className="text-gray-600 text-sm">
@@ -221,7 +253,7 @@ export default function GameManagementPage() {
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                จัดการโจทย์ ITO
+                จัดการโจทย์ {game.name}
               </button>
               <button
                 onClick={() => router.push(`/admin/games/${gameId}/logs`)}

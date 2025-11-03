@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
-import { useGames } from '@/lib/hooks/useGames';
+import { useAllGames } from '@/lib/hooks/useAllGames';
 import { useAdminActivity } from '@/lib/hooks/useAdminActivity';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { games, loading: gamesLoading } = useGames();
+  const { games, loading: gamesLoading } = useAllGames();
 
   // Track admin activity and auto-logout after 8 hours of inactivity
   useAdminActivity();
@@ -173,8 +173,15 @@ export default function AdminDashboardPage() {
                 )}
 
                 <div className="p-5">
-                  {/* Game Name */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{game.name}</h3>
+                  {/* Game Name with Active Badge */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-bold text-gray-900">{game.name}</h3>
+                    {game.isActive === false && (
+                      <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">
+                        ปิดใช้งาน
+                      </span>
+                    )}
+                  </div>
 
                   {/* Game Description */}
                   {game.description && (
