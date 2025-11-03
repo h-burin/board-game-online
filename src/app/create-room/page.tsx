@@ -121,8 +121,13 @@ export default function CreateRoomPage() {
     }
 
     // IMPORTANT: Clear ALL localStorage BEFORE creating room to prevent stale data
+    // BUT preserve user age data so they don't have to re-enter it
     console.log("🗑️ Clearing all localStorage before creating room...");
+    const savedAge = localStorage.getItem("user_age");
+    const savedAgeTimestamp = localStorage.getItem("user_age_timestamp");
     localStorage.clear();
+    if (savedAge) localStorage.setItem("user_age", savedAge);
+    if (savedAgeTimestamp) localStorage.setItem("user_age_timestamp", savedAgeTimestamp);
 
     // Start loading
     setIsLoading(true);
