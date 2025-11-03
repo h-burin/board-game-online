@@ -54,6 +54,16 @@ export default function AdminQuestionsPage() {
         });
       });
 
+      // เรียงลำดับ: isActive ก่อน (false ก่อน true) แล้วตามด้วยชื่อ (A-Z)
+      questionsData.sort((a, b) => {
+        // เรียง isActive ก่อน (false มาก่อน true)
+        if (a.isActive !== b.isActive) {
+          return a.isActive ? 1 : -1;
+        }
+        // ถ้า isActive เท่ากัน ให้เรียงตามชื่อ
+        return a.questionsTH.localeCompare(b.questionsTH, 'th');
+      });
+
       setQuestions(questionsData);
     } catch (error) {
       console.error('Error loading questions:', error);
