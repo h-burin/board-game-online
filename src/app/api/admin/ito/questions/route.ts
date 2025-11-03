@@ -46,14 +46,16 @@ export async function GET() {
  *
  * Request Body:
  * {
- *   "questionsTH": "คำถามภาษาไทย"
+ *   "questionsTH": "คำถามภาษาไทย",
+ *   "isActive": false,           // optional, default: true
+ *   "createdBy": "AI"             // optional, default: "manual"
  * }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validation
+    // Validation - questionsTH (required)
     if (!body.questionsTH || typeof body.questionsTH !== 'string') {
       return NextResponse.json(
         {
@@ -76,13 +78,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create question
-    const questionsRef = collection(db, 'ito_questions');
-    const docRef = await addDoc(questionsRef, {
+    // Validation - isActive (optional)
+    if (body.isActive !== undefined && typeof body.isActive !== 'boolean') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          message: 'isActive must be a boolean',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validation - createdBy (optional)
+    if (body.createdBy !== undefined && typeof body.createdBy !== 'string') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          message: 'createdBy must be a string',
+        },
+        { status: 400 }
+      );
+    }
+
+    // Prepare data with defaults
+    const questionData = {
       questionsTH: body.questionsTH.trim(),
+      isActive: body.isActive ?? true,
+      createdBy: body.createdBy ?? 'manual',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    };
+
+    // Create question
+    const questionsRef = collection(db, 'ito_questions');
+    const docRef = await addDoc(questionsRef, questionData);
 
     return NextResponse.json(
       {
@@ -90,7 +121,9 @@ export async function POST(request: NextRequest) {
         message: 'Question created successfully',
         data: {
           id: docRef.id,
-          questionsTH: body.questionsTH.trim(),
+          questionsTH: questionData.questionsTH,
+          isActive: questionData.isActive,
+          createdBy: questionData.createdBy,
         },
       },
       { status: 201 }
