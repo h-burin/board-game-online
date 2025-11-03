@@ -9,7 +9,6 @@
       "Bash(xargs:*)",
       "Bash(npm run build:*)",
       "Bash(node --version:*)",
-      "Bash(git commit:*)",
       "Bash(pkill -f \"next dev\")",
       "Bash(npm run dev)",
       "Bash(pkill -9 node)",
@@ -32,7 +31,10 @@
       "Bash(npx @firebase/rules-unit-testing@latest)",
       "Bash(cat:*)"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(git add:*)",
+      "Bash(git push:*)"
+    ],
     "ask": []
   }
 }

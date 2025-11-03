@@ -19,9 +19,11 @@ import {
   DocumentReference,
   runTransaction,
   writeBatch,
+  addDoc,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ItoGameState, ItoPlayerAnswer, ItoQuestion, ItoReadyStatus } from '@/types/ito';
+import { getAge } from '@/lib/utils/ageStorage';
 
 /**
  * Helper: ดึง timeLimit จาก room (หน่วย: นาที)
@@ -490,6 +492,34 @@ async function cleanupPlayerAnswers(sessionId: string): Promise<void> {
 }
 
 /**
+ * บันทึก log การเล่นเกมลง ito_game_logs
+ */
+async function logPlayerAnswer(
+  questionId: string,
+  number: number,
+  answer: string
+): Promise<void> {
+  try {
+    // ดึงอายุจาก localStorage (ถ้ามี)
+    const ageRange = typeof window !== 'undefined' ? getAge() : null;
+
+    const logsRef = collection(db, 'ito_game_logs');
+    await addDoc(logsRef, {
+      questionId,
+      ageRange,
+      number,
+      answer,
+      createdAt: serverTimestamp(),
+    });
+
+    console.log('📊 Game log saved:', { questionId, ageRange, number, answer });
+  } catch (error) {
+    // ไม่ throw error เพราะไม่ต้องการให้ log ล้มเหลวทำให้เกมหยุด
+    console.error('⚠️ Failed to log player answer (non-critical):', error);
+  }
+}
+
+/**
  * ส่งคำตอบของผู้เล่น (อัปเดตเฉพาะ document ที่ระบุ answerIndex)
  */
 export async function submitPlayerAnswer(
@@ -507,6 +537,23 @@ export async function submitPlayerAnswer(
       answer: answer,
       submittedAt: serverTimestamp(),
     });
+
+    // ดึงข้อมูล game state และ player answer เพื่อ log
+    const sessionRef = doc(db, 'game_sessions', sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+    const answerSnap = await getDoc(answerRef);
+
+    if (sessionSnap.exists() && answerSnap.exists()) {
+      const gameState = sessionSnap.data();
+      const playerAnswer = answerSnap.data();
+
+      // บันทึก log (async, ไม่รอผลลัพธ์)
+      logPlayerAnswer(
+        gameState.questionId,
+        playerAnswer.number,
+        answer
+      ).catch((err) => console.error('Log error:', err));
+    }
 
     console.log('✅ Player answer submitted:', {
       sessionId,
