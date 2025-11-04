@@ -118,7 +118,7 @@ service cloud.firestore {
     match /ito_game_logs/{logId} {
       allow read: if request.auth != null; // admin เท่านั้น
       allow create: if true; // อนุญาตให้ทุกคนสร้าง log ได้
-      allow update: if false; // ไม่อนุญาตให้แก้ไข
+      allow update: if request.auth != null; // admin เท่านั้นสามารถแก้ไขได้
       allow delete: if request.auth != null; // admin เท่านั้นสามารถลบได้
     }
 

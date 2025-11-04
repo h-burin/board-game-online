@@ -7,7 +7,7 @@ import { auth, db } from "@/lib/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { useItoGameLogs, useItoQuestions } from "@/lib/hooks/useItoGameLogs";
 import { useAdminActivity } from "@/lib/hooks/useAdminActivity";
-import { deleteGameLogs } from "@/lib/firebase/ito";
+import { deleteGameLogs, updateGameLogAnswer } from "@/lib/firebase/ito";
 
 export default function ItoGameLogsPage() {
   const router = useRouter();
@@ -34,11 +34,6 @@ export default function ItoGameLogsPage() {
   const [showQuestionDropdown, setShowQuestionDropdown] = useState<boolean>(false);
   const questionDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Expanded question for drill-down
-  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
-    null
-  );
-
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{
     logId: string;
@@ -46,7 +41,36 @@ export default function ItoGameLogsPage() {
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Edit answer
+  const [editingLog, setEditingLog] = useState<{
+    logId: string;
+    currentAnswer: string;
+  } | null>(null);
+  const [editedAnswer, setEditedAnswer] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Pagination
+  const [displayCount, setDisplayCount] = useState(20); // แสดง 20 รายการแรก
+  const LOAD_MORE_COUNT = 20; // โหลดเพิ่มครั้งละ 20
+
+  // Sorting
+  type SortField = 'createdAt' | 'number' | 'answer' | 'questionId' | 'ageRange';
+  const [sortField, setSortField] = useState<SortField>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   useAdminActivity();
+
+  // Handle sort
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if clicking same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to desc for dates, asc for others
+      setSortField(field);
+      setSortDirection(field === 'createdAt' ? 'desc' : 'asc');
+    }
+  };
 
   // Handle delete logs (bulk delete)
   const handleDeleteLogs = async (logIds: string[]) => {
@@ -64,6 +88,28 @@ export default function ItoGameLogsPage() {
       alert('เกิดข้อผิดพลาดในการลบ log');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // Handle edit answer
+  const handleEditAnswer = async () => {
+    if (!editingLog || !editedAnswer.trim()) return;
+
+    setIsUpdating(true);
+    try {
+      const success = await updateGameLogAnswer(editingLog.logId, editedAnswer.trim());
+      if (success) {
+        console.log('✅ Answer updated successfully');
+        setEditingLog(null);
+        setEditedAnswer("");
+      } else {
+        alert('เกิดข้อผิดพลาดในการแก้ไขคำตอบ');
+      }
+    } catch (error) {
+      console.error('Error updating answer:', error);
+      alert('เกิดข้อผิดพลาดในการแก้ไขคำตอบ');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -126,9 +172,9 @@ export default function ItoGameLogsPage() {
     );
   }, [questions, questionSearchTerm]);
 
-  // Filter logs
+  // Filter and sort logs
   const filteredLogs = useMemo(() => {
-    return logs.filter((log) => {
+    const filtered = logs.filter((log) => {
       if (selectedAgeRange !== "all" && log.ageRange !== selectedAgeRange) {
         return false;
       }
@@ -197,7 +243,40 @@ export default function ItoGameLogsPage() {
 
       return true;
     });
-  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange, selectedEditStatus, selectedTestStatus, selectedDateRange, customStartDate, customEndDate]);
+
+    // Sort the filtered logs
+    const sorted = [...filtered].sort((a, b) => {
+      let compareValue = 0;
+
+      switch (sortField) {
+        case 'createdAt':
+          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+          compareValue = dateA.getTime() - dateB.getTime();
+          break;
+        case 'number':
+          compareValue = a.number - b.number;
+          break;
+        case 'answer':
+          compareValue = a.answer.localeCompare(b.answer, 'th');
+          break;
+        case 'questionId':
+          const questionA = questions[a.questionId] || '';
+          const questionB = questions[b.questionId] || '';
+          compareValue = questionA.localeCompare(questionB, 'th');
+          break;
+        case 'ageRange':
+          const ageA = a.ageRange || 'ไม่ระบุ';
+          const ageB = b.ageRange || 'ไม่ระบุ';
+          compareValue = ageA.localeCompare(ageB, 'th');
+          break;
+      }
+
+      return sortDirection === 'asc' ? compareValue : -compareValue;
+    });
+
+    return sorted;
+  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange, selectedEditStatus, selectedTestStatus, selectedDateRange, customStartDate, customEndDate, sortField, sortDirection, questions]);
 
   // Analytics calculations
   const analytics = useMemo(() => {
@@ -724,257 +803,348 @@ export default function ItoGameLogsPage() {
               </div>
             </div>
 
-            {/* By Question with Drill-down */}
-            <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <span className="text-2xl">❓</span>
-                แจกแจงตามโจทย์
+            {/* All Logs - Raw List */}
+            <div className="bg-white rounded-xl shadow border border-gray-200 p-4 md:p-6">
+              <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <span className="text-xl md:text-2xl">📋</span>
+                รายการคำตอบทั้งหมด
               </h2>
-              <div className="space-y-4">
-                {Object.entries(analytics.byQuestion)
-                  .sort(([, a], [, b]) => b.count - a.count)
-                  .map(([qId, data]) => {
-                    const questionText = questions[qId] || "ไม่พบโจทย์";
-                    const diversity = analytics.questionDiversity[qId] || 0;
-                    const percentage = (
-                      (data.count / analytics.totalAnswers) *
-                      100
-                    ).toFixed(1);
-                    const isExpanded = expandedQuestionId === qId;
 
-                    // Group answers by answer text with age ranges and edit info
-                    const answerGroups: {
-                      [answer: string]: Array<{
-                        logId: string;
-                        ageRange: string | null;
-                        number: number;
-                        isEdited: boolean;
-                        previousAnswer: string | null;
-                        isTest: boolean;
-                      }>;
-                    } = {};
-                    data.answerDetails.forEach((detail) => {
-                      const answerKey = detail.answer.toLowerCase().trim();
-                      if (!answerGroups[answerKey]) {
-                        answerGroups[answerKey] = [];
-                      }
-                      answerGroups[answerKey].push({
-                        logId: detail.logId,
-                        ageRange: detail.ageRange,
-                        number: detail.number,
-                        isEdited: detail.isEdited,
-                        previousAnswer: detail.previousAnswer,
-                        isTest: detail.isTest,
-                      });
-                    });
-
-                    return (
-                      <div
-                        key={qId}
-                        className="border border-gray-200 rounded-lg overflow-hidden"
+              {/* Desktop Table View - Hidden on Mobile */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-gray-50 z-10">
+                    <tr className="border-b-2 border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">#</th>
+                      <th
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        onClick={() => handleSort('questionId')}
                       >
-                        <button
-                          onClick={() =>
-                            setExpandedQuestionId(isExpanded ? null : qId)
-                          }
-                          className="w-full border-l-4 border-blue-500 pl-4 py-3 bg-white hover:bg-gray-50 transition-colors text-left"
+                        <div className="flex items-center gap-1">
+                          <span>โจทย์</span>
+                          {sortField === 'questionId' && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === 'asc' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="text-left py-3 px-4 text-sm font-semibold text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        onClick={() => handleSort('answer')}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>คำตอบ</span>
+                          {sortField === 'answer' && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === 'asc' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="text-center py-3 px-3 text-sm font-semibold text-gray-700 w-20 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        onClick={() => handleSort('number')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>เลข</span>
+                          {sortField === 'number' && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === 'asc' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="text-center py-3 px-3 text-sm font-semibold text-gray-700 w-24 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        onClick={() => handleSort('ageRange')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>ช่วงอายุ</span>
+                          {sortField === 'ageRange' && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === 'asc' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-3 text-sm font-semibold text-gray-700 w-24">สถานะ</th>
+                      <th
+                        className="text-center py-3 px-3 text-sm font-semibold text-gray-700 w-32 cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                        onClick={() => handleSort('createdAt')}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>เวลา</span>
+                          {sortField === 'createdAt' && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {sortDirection === 'asc' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              )}
+                            </svg>
+                          )}
+                        </div>
+                      </th>
+                      <th className="text-center py-3 px-2 text-sm font-semibold text-gray-700 w-24">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLogs.slice(0, displayCount).map((log, index) => {
+                      const questionText = questions[log.questionId] || "ไม่พบโจทย์";
+                      const logDate = log.createdAt?.toDate ? log.createdAt.toDate() : new Date(log.createdAt);
+                      const formattedDate = logDate.toLocaleString('th-TH', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+
+                      return (
+                        <tr
+                          key={log.id}
+                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                         >
-                          <div className="flex justify-between">
-                            <div>
-                              <div className="flex items-start justify-between mb-2">
-                                <p className="text-sm font-medium text-gray-900 flex-1 pr-4">
-                                  {questionText}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-gray-500">
-                                <span>{percentage}% ของทั้งหมด</span>
-                                <span>•</span>
-                                <span>ความหลากหลาย: {diversity}%</span>
-                              </div>
+                          <td className="py-3 px-4 text-sm text-gray-500">
+                            {index + 1}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-900">
+                            <div className="max-w-xs truncate" title={questionText}>
+                              {questionText}
                             </div>
-
-                            <div className="flex items-center gap-2 flex-shrink-0 me-4">
-                              <span className="text-sm text-gray-600">
-                                {data.count} คำตอบ
-                              </span>
-                              <svg
-                                className={`w-5 h-5 text-gray-400 transition-transform ${
-                                  isExpanded ? "rotate-180" : ""
-                                }`}
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 9l-7 7-7-7"
-                                />
-                              </svg>
+                          </td>
+                          <td className="py-3 px-4 text-sm">
+                            <div className="flex flex-col gap-1">
+                              <span className="font-medium text-gray-900">{log.answer}</span>
+                              {log.isEdited && log.previousAnswer && (
+                                <span className="text-xs text-gray-500 italic">
+                                  เดิม: {log.previousAnswer}
+                                </span>
+                              )}
                             </div>
-                          </div>
-                        </button>
-
-                        {/* Expanded Details */}
-                        {isExpanded && (
-                          <div className="bg-gray-50 px-4 py-4 border-t border-gray-200">
-                            <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                              คำตอบทั้งหมด:
-                            </h4>
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                              {Object.entries(answerGroups)
-                                .sort(([, a], [, b]) => b.length - a.length)
-                                .map(([answer, details], idx) => {
-                                  // Group by age range
-                                  const ageGroups: { [age: string]: number } =
-                                    {};
-                                  details.forEach((d) => {
-                                    const age = d.ageRange || "ไม่ระบุ";
-                                    ageGroups[age] = (ageGroups[age] || 0) + 1;
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-800 font-bold text-sm">
+                              {log.number}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center text-sm text-gray-600">
+                            {log.ageRange || "-"}
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex flex-col gap-1 items-center">
+                              {log.isEdited && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                  แก้ไข
+                                </span>
+                              )}
+                              {log.isTest && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                  ทดสอบ
+                                </span>
+                              )}
+                              {!log.isEdited && !log.isTest && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  ปกติ
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center text-xs text-gray-500">
+                            {formattedDate}
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingLog({
+                                    logId: log.id,
+                                    currentAnswer: log.answer
                                   });
-
-                                  // Calculate average number for this answer
-                                  const avgNumber = Math.round(
-                                    details.reduce(
-                                      (sum, d) => sum + d.number,
-                                      0
-                                    ) / details.length
-                                  );
-
-                                  // Get number range
-                                  const numbers = details
-                                    .map((d) => d.number)
-                                    .sort((a, b) => a - b);
-                                  const minNumber = numbers[0];
-                                  const maxNumber = numbers[numbers.length - 1];
-
-                                  // Check for edits
-                                  const editedCount = details.filter((d) => d.isEdited).length;
-                                  const hasEdits = editedCount > 0;
-
-                                  // Group previous answers if edited
-                                  const previousAnswers = new Set(
-                                    details
-                                      .filter((d) => d.isEdited && d.previousAnswer)
-                                      .map((d) => d.previousAnswer!)
-                                  );
-
-                                  // Check for test answers
-                                  const testCount = details.filter((d) => d.isTest).length;
-                                  const hasTestAnswers = testCount > 0;
-
-                                  // Get all log IDs for this answer
-                                  const logIds = details.map(d => d.logId);
-
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className={`bg-white rounded-lg p-4 border-2 ${
-                                        hasEdits ? "border-orange-300" : "border-gray-200"
-                                      } relative`}
-                                    >
-                                      {/* Delete Button - Top Right */}
-                                      <button
-                                        onClick={() => setDeleteConfirm({
-                                          logId: logIds.join(','), // Store multiple IDs
-                                          answer: answer
-                                        })}
-                                        className="absolute top-2 right-2 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                        title={`ลบคำตอบ "${answer}" (${details.length} ครั้ง)`}
-                                      >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                      </button>
-
-                                      {/* Answer Text */}
-                                      <div className="text-center mb-3 pr-8">
-                                        <div className="flex items-center justify-center gap-2 flex-wrap">
-                                          <p className="text-base font-semibold text-gray-900">
-                                            &quot;{answer}&quot;
-                                          </p>
-                                          {hasEdits && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                              แก้ไข {editedCount}x
-                                            </span>
-                                          )}
-                                          {hasTestAnswers && (
-                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                              ทดสอบ {testCount}x
-                                            </span>
-                                          )}
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-1">
-                                          ถูกใช้ {details.length} ครั้ง
-                                        </p>
-                                        {/* Show previous answers if edited */}
-                                        {hasEdits && previousAnswers.size > 0 && (
-                                          <div className="mt-2 text-xs text-gray-600">
-                                            <span className="font-medium">แก้ไขจาก:</span>{" "}
-                                            {Array.from(previousAnswers).map((prev, i) => (
-                                              <span key={i}>
-                                                {i > 0 && ", "}
-                                                <span className="italic">&quot;{prev}&quot;</span>
-                                              </span>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Stats Grid - 3 columns */}
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {/* Age Ranges */}
-                                        <div className="bg-gray-50 rounded-lg p-3">
-                                          <p className="text-xs text-gray-600 mb-2 text-center">
-                                            ช่วงอายุ
-                                          </p>
-                                          <div className="flex flex-wrap gap-1 justify-center">
-                                            {Object.entries(ageGroups)
-                                              .sort(([, a], [, b]) => b - a)
-                                              .map(([age, count]) => (
-                                                <span
-                                                  key={age}
-                                                  className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                                                >
-                                                  {age}: {count}
-                                                </span>
-                                              ))}
-                                          </div>
-                                        </div>
-
-                                        {/* Number Range */}
-                                        <div className="bg-gray-50 rounded-lg p-3 text-center">
-                                          <p className="text-xs text-gray-600 mb-1">
-                                            เลขที่ได้
-                                          </p>
-                                          <p className="text-lg font-bold text-gray-900">
-                                            {minNumber}
-                                            {minNumber !== maxNumber
-                                              ? `-${maxNumber}`
-                                              : ""}
-                                          </p>
-                                        </div>
-
-                                        {/* Average Number */}
-                                        <div className="bg-gray-50 rounded-lg p-3 text-center">
-                                          <p className="text-xs text-gray-600 mb-1">
-                                            เลขเฉลี่ย
-                                          </p>
-                                          <p className="text-lg font-bold text-gray-900">
-                                            {avgNumber}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
+                                  setEditedAnswer(log.answer);
+                                }}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="แก้ไข"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirm({
+                                  logId: log.id,
+                                  answer: log.answer
                                 })}
+                                className="p-1.5 text-red-500 hover:bg-red-50 rounded transition-colors"
+                                title="ลบ"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
                             </div>
-                          </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View - Visible on Mobile Only */}
+              <div className="md:hidden space-y-3">
+                {filteredLogs.slice(0, displayCount).map((log, index) => {
+                  const questionText = questions[log.questionId] || "ไม่พบโจทย์";
+                  const logDate = log.createdAt?.toDate ? log.createdAt.toDate() : new Date(log.createdAt);
+                  const formattedDate = logDate.toLocaleString('th-TH', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+
+                  return (
+                    <div
+                      key={log.id}
+                      className="bg-gray-50 rounded-lg p-3 border border-gray-200 relative"
+                    >
+                      {/* Action Buttons - Top Right */}
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingLog({
+                              logId: log.id,
+                              currentAnswer: log.answer
+                            });
+                            setEditedAnswer(log.answer);
+                          }}
+                          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                          title="แก้ไข"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm({
+                            logId: log.id,
+                            answer: log.answer
+                          })}
+                          className="p-1.5 text-red-500 hover:bg-red-100 rounded transition-colors"
+                          title="ลบ"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Header: Number + Status */}
+                      <div className="flex items-center gap-3 mb-2 pr-16">
+                        <div className="flex-shrink-0">
+                          <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-800 font-bold text-base">
+                            {log.number}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {log.isEdited && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                              แก้ไข
+                            </span>
+                          )}
+                          {log.isTest && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                              ทดสอบ
+                            </span>
+                          )}
+                          {!log.isEdited && !log.isTest && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ปกติ
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Question */}
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-500 mb-0.5">โจทย์</p>
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                          {questionText}
+                        </p>
+                      </div>
+
+                      {/* Answer */}
+                      <div className="mb-2">
+                        <p className="text-xs text-gray-500 mb-0.5">คำตอบ</p>
+                        <p className="text-base font-bold text-gray-900">
+                          {log.answer}
+                        </p>
+                        {log.isEdited && log.previousAnswer && (
+                          <p className="text-xs text-gray-500 italic mt-0.5">
+                            เดิม: {log.previousAnswer}
+                          </p>
                         )}
                       </div>
-                    );
-                  })}
+
+                      {/* Meta Info */}
+                      <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+                        <div className="flex items-center gap-3">
+                          <span>#{index + 1}</span>
+                          <span>อายุ: {log.ageRange || "-"}</span>
+                        </div>
+                        <span>{formattedDate}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Load More Button & Total Count */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <p className="text-sm text-gray-600 text-center mb-3">
+                  แสดง <span className="font-bold text-gray-900">{Math.min(displayCount, filteredLogs.length)}</span> จาก <span className="font-bold text-gray-900">{filteredLogs.length}</span> รายการ
+                </p>
+
+                {displayCount < filteredLogs.length && (
+                  <div className="flex flex-col sm:flex-row justify-center gap-2">
+                    <button
+                      onClick={() => setDisplayCount(prev => prev + LOAD_MORE_COUNT)}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>โหลดเพิ่มเติม ({LOAD_MORE_COUNT} รายการ)</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setDisplayCount(filteredLogs.length)}
+                      className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <span>โหลดทั้งหมด ({filteredLogs.length} รายการ)</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1047,6 +1217,83 @@ export default function ItoGameLogsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Answer Modal */}
+      {editingLog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">แก้ไขคำตอบ</h3>
+                <p className="text-sm text-gray-600">แก้ไขคำตอบที่บันทึกไว้</p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                คำตอบเดิม
+              </label>
+              <div className="bg-gray-50 rounded-lg p-3 text-gray-600 text-sm">
+                {editingLog.currentAnswer}
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                คำตอบใหม่
+              </label>
+              <input
+                type="text"
+                value={editedAnswer}
+                onChange={(e) => setEditedAnswer(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="กรอกคำตอบใหม่"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && editedAnswer.trim()) {
+                    handleEditAnswer();
+                  }
+                }}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setEditingLog(null);
+                  setEditedAnswer("");
+                }}
+                disabled={isUpdating}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleEditAnswer}
+                disabled={isUpdating || !editedAnswer.trim()}
+                className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isUpdating ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    กำลังบันทึก...
+                  </>
+                ) : (
+                  'บันทึก'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (

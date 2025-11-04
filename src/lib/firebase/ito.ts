@@ -1302,3 +1302,24 @@ export async function deleteGameLogs(logIds: string[]): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * อัพเดทคำตอบใน game log
+ */
+export async function updateGameLogAnswer(
+  logId: string,
+  newAnswer: string
+): Promise<boolean> {
+  try {
+    const logRef = doc(db, 'ito_game_logs', logId);
+    await updateDoc(logRef, {
+      answer: newAnswer,
+    });
+
+    console.log('✅ Game log answer updated:', logId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating game log answer:', error);
+    return false;
+  }
+}
