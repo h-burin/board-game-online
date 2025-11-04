@@ -7,6 +7,7 @@ import { auth, db } from "@/lib/firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { useItoGameLogs, useItoQuestions } from "@/lib/hooks/useItoGameLogs";
 import { useAdminActivity } from "@/lib/hooks/useAdminActivity";
+import { deleteGameLogs } from "@/lib/firebase/ito";
 
 export default function ItoGameLogsPage() {
   const router = useRouter();
@@ -34,7 +35,33 @@ export default function ItoGameLogsPage() {
     null
   );
 
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    logId: string;
+    answer: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useAdminActivity();
+
+  // Handle delete logs (bulk delete)
+  const handleDeleteLogs = async (logIds: string[]) => {
+    setIsDeleting(true);
+    try {
+      const success = await deleteGameLogs(logIds);
+      if (success) {
+        console.log('✅ Logs deleted successfully');
+        setDeleteConfirm(null);
+      } else {
+        alert('เกิดข้อผิดพลาดในการลบ log');
+      }
+    } catch (error) {
+      console.error('Error deleting logs:', error);
+      alert('เกิดข้อผิดพลาดในการลบ log');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -143,6 +170,7 @@ export default function ItoGameLogsPage() {
         count: number;
         answers: string[];
         answerDetails: Array<{
+          logId: string;
           answer: string;
           ageRange: string | null;
           number: number;
@@ -162,6 +190,7 @@ export default function ItoGameLogsPage() {
       byQuestion[log.questionId].count++;
       byQuestion[log.questionId].answers.push(log.answer);
       byQuestion[log.questionId].answerDetails.push({
+        logId: log.id,
         answer: log.answer,
         ageRange: log.ageRange,
         number: log.number,
@@ -567,6 +596,7 @@ export default function ItoGameLogsPage() {
                     // Group answers by answer text with age ranges and edit info
                     const answerGroups: {
                       [answer: string]: Array<{
+                        logId: string;
                         ageRange: string | null;
                         number: number;
                         isEdited: boolean;
@@ -579,6 +609,7 @@ export default function ItoGameLogsPage() {
                         answerGroups[answerKey] = [];
                       }
                       answerGroups[answerKey].push({
+                        logId: detail.logId,
                         ageRange: detail.ageRange,
                         number: detail.number,
                         isEdited: detail.isEdited,
@@ -678,15 +709,32 @@ export default function ItoGameLogsPage() {
                                       .map((d) => d.previousAnswer!)
                                   );
 
+                                  // Get all log IDs for this answer
+                                  const logIds = details.map(d => d.logId);
+
                                   return (
                                     <div
                                       key={idx}
                                       className={`bg-white rounded-lg p-4 border-2 ${
                                         hasEdits ? "border-orange-300" : "border-gray-200"
-                                      }`}
+                                      } relative`}
                                     >
+                                      {/* Delete Button - Top Right */}
+                                      <button
+                                        onClick={() => setDeleteConfirm({
+                                          logId: logIds.join(','), // Store multiple IDs
+                                          answer: answer
+                                        })}
+                                        className="absolute top-2 right-2 p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title={`ลบคำตอบ "${answer}" (${details.length} ครั้ง)`}
+                                      >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      </button>
+
                                       {/* Answer Text */}
-                                      <div className="text-center mb-3">
+                                      <div className="text-center mb-3 pr-8">
                                         <div className="flex items-center justify-center gap-2">
                                           <p className="text-base font-semibold text-gray-900">
                                             &quot;{answer}&quot;
@@ -839,6 +887,67 @@ export default function ItoGameLogsPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">ยืนยันการลบ</h3>
+                <p className="text-sm text-gray-600">การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-700 mb-2">
+                คุณต้องการลบคำตอบ:
+              </p>
+              <p className="text-base font-semibold text-gray-900 mb-2">
+                &quot;{deleteConfirm.answer}&quot;
+              </p>
+              <p className="text-xs text-red-600">
+                จำนวน {deleteConfirm.logId.split(',').length} log จะถูกลบ
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => {
+                  const logIds = deleteConfirm.logId.split(',');
+                  handleDeleteLogs(logIds);
+                }}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    กำลังลบ...
+                  </>
+                ) : (
+                  'ลบ'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

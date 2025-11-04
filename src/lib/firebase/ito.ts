@@ -1243,3 +1243,41 @@ export async function clearReadyStatus(sessionId: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * ลบ game log
+ */
+export async function deleteGameLog(logId: string): Promise<boolean> {
+  try {
+    const logRef = doc(db, 'ito_game_logs', logId);
+    await deleteDoc(logRef);
+
+    console.log('✅ Game log deleted:', logId);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting game log:', error);
+    return false;
+  }
+}
+
+/**
+ * ลบ game logs หลายตัวพร้อมกัน (bulk delete)
+ */
+export async function deleteGameLogs(logIds: string[]): Promise<boolean> {
+  try {
+    const batch = writeBatch(db);
+
+    logIds.forEach((logId) => {
+      const logRef = doc(db, 'ito_game_logs', logId);
+      batch.delete(logRef);
+    });
+
+    await batch.commit();
+
+    console.log('✅ Game logs deleted:', logIds.length);
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting game logs:', error);
+    return false;
+  }
+}
