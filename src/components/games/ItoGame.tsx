@@ -442,22 +442,20 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   const answersWithIndex = myAnswers as unknown as ItoPlayerAnswerWithIndex[];
 
   return (
-    <>
+    <div className="relative">
       {/* Game Header - Sticky */}
-      <div>
-        <GameHeader
-          questionText={gameState.questionText}
-          createdBy={gameState.questionCreatedBy}
-          revealedCount={gameState.revealedNumbers.length}
-          totalRounds={gameState.totalRounds}
-          hearts={gameState.hearts}
-          phase={gameState.phase}
-          status={gameState.status}
-          lastRevealResult={gameState.lastRevealResult || null}
-          timeLeft={timeLeft}
-          phaseEndTime={gameState.phaseEndTime}
-        />
-      </div>
+      <GameHeader
+        questionText={gameState.questionText}
+        createdBy={gameState.questionCreatedBy}
+        revealedCount={gameState.revealedNumbers.length}
+        totalRounds={gameState.totalRounds}
+        hearts={gameState.hearts}
+        phase={gameState.phase}
+        status={gameState.status}
+        lastRevealResult={gameState.lastRevealResult || null}
+        timeLeft={timeLeft}
+        phaseEndTime={gameState.phaseEndTime}
+      />
 
       {/* Content Container */}
       <div className="space-y-4 md:space-y-6">
@@ -525,6 +523,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
         <FinishedPhase playerAnswers={playerAnswers} gameState={gameState} />
       )}
       </div>
-    </>
+    </div>
   );
 }
