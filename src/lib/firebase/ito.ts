@@ -492,6 +492,22 @@ async function cleanupPlayerAnswers(sessionId: string): Promise<void> {
 }
 
 /**
+ * ตรวจสอบว่าคำตอบเป็นคำตอบทดสอบหรือไม่
+ * คำตอบทดสอบ = ตัวเลขอย่างเดียว (อาจมี space, comma, hyphen)
+ * ตัวอย่าง test: "1", "12", "1 2", "1,2,3", "1-10"
+ * ตัวอย่าง NOT test: "25ปี", "100บาท", "โสด"
+ */
+function isTestAnswer(answer: string): boolean {
+  if (!answer || answer.trim() === '') return false;
+
+  // ลบ space, comma, hyphen ออก - ถ้าเหลือแต่ตัวเลขอย่างเดียว = test answer
+  const cleaned = answer.replace(/[\s,\-]/g, '');
+
+  // ตรวจสอบว่าเหลือแต่ตัวเลข 0-9 เท่านั้น
+  return /^\d+$/.test(cleaned);
+}
+
+/**
  * บันทึก log การเล่นเกมลง ito_game_logs
  * รองรับการเก็บ log แยกสำหรับคำตอบแรกและการแก้ไข
  */
@@ -508,6 +524,9 @@ async function logPlayerAnswer(
     // ตรวจสอบว่าเป็นการแก้ไขหรือไม่
     const isEdited = previousAnswer !== undefined && previousAnswer !== null && previousAnswer !== '';
 
+    // ตรวจสอบว่าเป็นคำตอบทดสอบหรือไม่
+    const isTest = isTestAnswer(answer);
+
     const logsRef = collection(db, 'ito_game_logs');
     await addDoc(logsRef, {
       questionId,
@@ -516,6 +535,7 @@ async function logPlayerAnswer(
       answer,
       isEdited,
       previousAnswer: isEdited ? previousAnswer : null,
+      isTest,
       createdAt: serverTimestamp(),
     });
 
@@ -525,10 +545,11 @@ async function logPlayerAnswer(
         ageRange,
         number,
         previousAnswer: previousAnswer,
-        newAnswer: answer
+        newAnswer: answer,
+        isTest
       });
     } else {
-      console.log('📊 Game log saved (ORIGINAL):', { questionId, ageRange, number, answer });
+      console.log('📊 Game log saved (ORIGINAL):', { questionId, ageRange, number, answer, isTest });
     }
   } catch (error) {
     // ไม่ throw error เพราะไม่ต้องการให้ log ล้มเหลวทำให้เกมหยุด

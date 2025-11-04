@@ -10,6 +10,7 @@ export interface ItoGameLog {
   answer: string;
   isEdited: boolean;
   previousAnswer: string | null;
+  isTest: boolean;
   createdAt: any;
 }
 

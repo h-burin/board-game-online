@@ -24,6 +24,10 @@ export default function ItoGameLogsPage() {
   const [selectedQuestion, setSelectedQuestion] = useState<string>("all");
   const [selectedNumberRange, setSelectedNumberRange] = useState<string>("all");
   const [selectedEditStatus, setSelectedEditStatus] = useState<string>("all");
+  const [selectedTestStatus, setSelectedTestStatus] = useState<string>("all");
+  const [selectedDateRange, setSelectedDateRange] = useState<string>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
 
   // Question autocomplete
   const [questionSearchTerm, setQuestionSearchTerm] = useState<string>("");
@@ -146,9 +150,54 @@ export default function ItoGameLogsPage() {
         if (selectedEditStatus === "original" && log.isEdited) return false;
         if (selectedEditStatus === "edited" && !log.isEdited) return false;
       }
+      if (selectedTestStatus !== "all") {
+        if (selectedTestStatus === "real" && log.isTest) return false;
+        if (selectedTestStatus === "test" && !log.isTest) return false;
+      }
+
+      // Date filter
+      if (selectedDateRange !== "all" || customStartDate || customEndDate) {
+        const logDate = log.createdAt?.toDate ? log.createdAt.toDate() : new Date(log.createdAt);
+        const now = new Date();
+
+        if (selectedDateRange === "today") {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (logDate < today) return false;
+        } else if (selectedDateRange === "yesterday") {
+          const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (logDate < yesterday || logDate >= today) return false;
+        } else if (selectedDateRange === "last7days") {
+          const last7days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          if (logDate < last7days) return false;
+        } else if (selectedDateRange === "last30days") {
+          const last30days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          if (logDate < last30days) return false;
+        } else if (selectedDateRange === "thisWeek") {
+          const firstDayOfWeek = new Date(now);
+          firstDayOfWeek.setDate(now.getDate() - now.getDay());
+          firstDayOfWeek.setHours(0, 0, 0, 0);
+          if (logDate < firstDayOfWeek) return false;
+        } else if (selectedDateRange === "thisMonth") {
+          const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (logDate < firstDayOfMonth) return false;
+        } else if (selectedDateRange === "custom") {
+          if (customStartDate) {
+            const startDate = new Date(customStartDate);
+            startDate.setHours(0, 0, 0, 0);
+            if (logDate < startDate) return false;
+          }
+          if (customEndDate) {
+            const endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
+            if (logDate > endDate) return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange, selectedEditStatus]);
+  }, [logs, selectedAgeRange, selectedQuestion, selectedNumberRange, selectedEditStatus, selectedTestStatus, selectedDateRange, customStartDate, customEndDate]);
 
   // Analytics calculations
   const analytics = useMemo(() => {
@@ -176,6 +225,7 @@ export default function ItoGameLogsPage() {
           number: number;
           isEdited: boolean;
           previousAnswer: string | null;
+          isTest: boolean;
         }>;
       };
     } = {};
@@ -196,6 +246,7 @@ export default function ItoGameLogsPage() {
         number: log.number,
         isEdited: log.isEdited,
         previousAnswer: log.previousAnswer,
+        isTest: log.isTest,
       });
     });
 
@@ -262,6 +313,15 @@ export default function ItoGameLogsPage() {
       ),
     };
 
+    // 8. สถิติคำตอบทดสอบ
+    const testStats = {
+      totalTest: filteredLogs.filter((log) => log.isTest).length,
+      totalReal: filteredLogs.filter((log) => !log.isTest).length,
+      testPercentage: Math.round(
+        (filteredLogs.filter((log) => log.isTest).length / totalAnswers) * 100
+      ),
+    };
+
     return {
       totalAnswers,
       byAgeRange,
@@ -270,6 +330,7 @@ export default function ItoGameLogsPage() {
       topAnswers,
       questionDiversity,
       editStats,
+      testStats,
     };
   }, [filteredLogs]);
 
@@ -325,7 +386,7 @@ export default function ItoGameLogsPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-4">
             ตัวกรองข้อมูล
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Age Range Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -442,7 +503,7 @@ export default function ItoGameLogsPage() {
             {/* Edit Status Filter */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                สถานะคำตอบ
+                สถานะการแก้ไข
               </label>
               <select
                 value={selectedEditStatus}
@@ -454,13 +515,82 @@ export default function ItoGameLogsPage() {
                 <option value="edited">แก้ไขแล้ว</option>
               </select>
             </div>
+
+            {/* Test Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ประเภทคำตอบ
+              </label>
+              <select
+                value={selectedTestStatus}
+                onChange={(e) => setSelectedTestStatus(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="real">คำตอบจริง</option>
+                <option value="test">คำตอบทดสอบ</option>
+              </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ช่วงเวลา
+              </label>
+              <select
+                value={selectedDateRange}
+                onChange={(e) => setSelectedDateRange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="today">วันนี้</option>
+                <option value="yesterday">เมื่อวาน</option>
+                <option value="last7days">7 วันที่แล้ว</option>
+                <option value="last30days">30 วันที่แล้ว</option>
+                <option value="thisWeek">สัปดาห์นี้</option>
+                <option value="thisMonth">เดือนนี้</option>
+                <option value="custom">กำหนดเอง</option>
+              </select>
+            </div>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {selectedDateRange === "custom" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  จากวันที่
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ถึงวันที่
+                </label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Reset Filters */}
           {(selectedAgeRange !== "all" ||
             selectedQuestion !== "all" ||
             selectedNumberRange !== "all" ||
             selectedEditStatus !== "all" ||
+            selectedTestStatus !== "all" ||
+            selectedDateRange !== "all" ||
+            customStartDate ||
+            customEndDate ||
             questionSearchTerm) && (
             <button
               onClick={() => {
@@ -468,6 +598,10 @@ export default function ItoGameLogsPage() {
                 setSelectedQuestion("all");
                 setSelectedNumberRange("all");
                 setSelectedEditStatus("all");
+                setSelectedTestStatus("all");
+                setSelectedDateRange("all");
+                setCustomStartDate("");
+                setCustomEndDate("");
                 setQuestionSearchTerm("");
                 setShowQuestionDropdown(false);
               }}
@@ -537,6 +671,21 @@ export default function ItoGameLogsPage() {
                   <p className="text-2xl font-bold">{analytics.editStats.editPercentage}%</p>
                 </div>
               </div>
+              {/* Test Stats Mini Cards */}
+              <div className="grid grid-cols-3 gap-3 mt-3">
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">คำตอบจริง</p>
+                  <p className="text-2xl font-bold">{analytics.testStats.totalReal}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">คำตอบทดสอบ</p>
+                  <p className="text-2xl font-bold">{analytics.testStats.totalTest}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur rounded-lg p-3">
+                  <p className="text-white/70 text-xs">% ทดสอบ</p>
+                  <p className="text-2xl font-bold">{analytics.testStats.testPercentage}%</p>
+                </div>
+              </div>
             </div>
 
             {/* By Age Range */}
@@ -601,6 +750,7 @@ export default function ItoGameLogsPage() {
                         number: number;
                         isEdited: boolean;
                         previousAnswer: string | null;
+                        isTest: boolean;
                       }>;
                     } = {};
                     data.answerDetails.forEach((detail) => {
@@ -614,6 +764,7 @@ export default function ItoGameLogsPage() {
                         number: detail.number,
                         isEdited: detail.isEdited,
                         previousAnswer: detail.previousAnswer,
+                        isTest: detail.isTest,
                       });
                     });
 
@@ -709,6 +860,10 @@ export default function ItoGameLogsPage() {
                                       .map((d) => d.previousAnswer!)
                                   );
 
+                                  // Check for test answers
+                                  const testCount = details.filter((d) => d.isTest).length;
+                                  const hasTestAnswers = testCount > 0;
+
                                   // Get all log IDs for this answer
                                   const logIds = details.map(d => d.logId);
 
@@ -735,13 +890,18 @@ export default function ItoGameLogsPage() {
 
                                       {/* Answer Text */}
                                       <div className="text-center mb-3 pr-8">
-                                        <div className="flex items-center justify-center gap-2">
+                                        <div className="flex items-center justify-center gap-2 flex-wrap">
                                           <p className="text-base font-semibold text-gray-900">
                                             &quot;{answer}&quot;
                                           </p>
                                           {hasEdits && (
                                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                                               แก้ไข {editedCount}x
+                                            </span>
+                                          )}
+                                          {hasTestAnswers && (
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                                              ทดสอบ {testCount}x
                                             </span>
                                           )}
                                         </div>
