@@ -12,16 +12,11 @@ import { useAdminActivity } from "@/lib/hooks/useAdminActivity";
 import { useLogFilters } from "./hooks/useLogFilters";
 import { useLogActions } from "./hooks/useLogActions";
 
-// Components
-import { LogFilters } from "./components/LogFilters";
-import { LogAnalytics } from "./components/LogAnalytics";
-import { LogTable } from "./components/LogTable";
-import { LogCards } from "./components/LogCards";
-
 // Modal components
 import { EditAnswerModal } from "./components/modals/EditAnswerModal";
 import { DeleteConfirmModal } from "./components/modals/DeleteConfirmModal";
 import { DeleteTestLogsModal } from "./components/modals/DeleteTestLogsModal";
+import { DeleteTestLogsButton } from "./components/DeleteTestLogsButton";
 
 export default function ItoGameLogsPage() {
   const router = useRouter();
@@ -71,9 +66,8 @@ export default function ItoGameLogsPage() {
     return () => unsubscribe();
   }, [gameId, router]);
 
-  // Calculate statistics
+  // Calculate test logs count
   const testLogsCount = logs.filter(log => log.isTest).length;
-  const editedLogsCount = logs.filter(log => log.isEdited).length;
 
   if (loading || logsLoading || questionsLoading) {
     return (
@@ -112,94 +106,93 @@ export default function ItoGameLogsPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters Section */}
-        <LogFilters
-          selectedAgeRange={filters.selectedAgeRange}
-          setSelectedAgeRange={filters.setSelectedAgeRange}
-          selectedQuestion={filters.selectedQuestion}
-          setSelectedQuestion={filters.setSelectedQuestion}
-          minNumber={filters.minNumber}
-          setMinNumber={filters.setMinNumber}
-          maxNumber={filters.maxNumber}
-          setMaxNumber={filters.setMaxNumber}
-          selectedEditStatus={filters.selectedEditStatus}
-          setSelectedEditStatus={filters.setSelectedEditStatus}
-          selectedTestStatus={filters.selectedTestStatus}
-          setSelectedTestStatus={filters.setSelectedTestStatus}
-          startDate={filters.startDate}
-          setStartDate={filters.setStartDate}
-          endDate={filters.endDate}
-          setEndDate={filters.setEndDate}
-          questions={questions}
-          totalLogs={logs.length}
-          filteredCount={filters.filteredLogs.length}
-          hasActiveFilters={filters.hasActiveFilters}
-          onResetFilters={filters.resetFilters}
-        />
+        {/* Filters Section - TODO: Extract to LogFilters component */}
+        <div className="bg-white rounded-xl shadow border border-gray-200 p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">
+            ตัวกรองข้อมูล
+          </h2>
 
-        {/* Analytics Section */}
-        <LogAnalytics
-          totalLogs={logs.length}
-          filteredLogs={filters.filteredLogs.length}
-          testLogsCount={testLogsCount}
-          editedLogsCount={editedLogsCount}
-          displayCount={Math.min(displayCount, filters.filteredLogs.length)}
-          onDeleteAllTestLogs={() => actions.setShowDeleteTestConfirm(true)}
-        />
-
-        {/* Logs Display */}
-        <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              รายการ Logs
-            </h2>
+          {/* Filter controls would go here */}
+          <div className="text-sm text-gray-600">
+            Filtered: {filters.filteredLogs.length} / {logs.length} logs
           </div>
 
-          {/* Desktop Table View */}
-          <LogTable
-            logs={filters.filteredLogs.slice(0, displayCount)}
-            questions={questions}
-            sortField={filters.sortField}
-            sortDirection={filters.sortDirection}
-            onSort={filters.handleSort}
-            onEdit={actions.openEditModal}
-            onDelete={(logId, answer) => actions.setDeleteConfirm({ logId, answer })}
-          />
+          {/* Reset Filters & Delete Test Logs */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            {filters.hasActiveFilters && (
+              <button
+                onClick={filters.resetFilters}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                ล้างตัวกรอง
+              </button>
+            )}
 
-          {/* Mobile Cards View */}
-          <LogCards
-            logs={filters.filteredLogs.slice(0, displayCount)}
-            questions={questions}
-            onEdit={actions.openEditModal}
-            onDelete={(logId, answer) => actions.setDeleteConfirm({ logId, answer })}
-          />
+            <DeleteTestLogsButton
+              testLogsCount={testLogsCount}
+              onClick={() => actions.setShowDeleteTestConfirm(true)}
+            />
+          </div>
+        </div>
+
+        {/* Analytics Section - TODO: Extract to LogAnalytics component */}
+        <div className="mb-6">
+          <div className="text-sm text-gray-600">
+            Showing {Math.min(displayCount, filters.filteredLogs.length)} of {filters.filteredLogs.length} logs
+          </div>
+        </div>
+
+        {/* Logs Display - TODO: Extract to LogTable and LogCards components */}
+        <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            รายการ Logs
+          </h2>
+
+          {/* Table/Cards would go here */}
+          <div className="space-y-2">
+            {filters.filteredLogs.slice(0, displayCount).map((log) => (
+              <div key={log.id} className="p-4 border rounded">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-medium">{log.answer}</div>
+                    <div className="text-sm text-gray-600">
+                      Number: {log.number} | Question: {questions[log.questionId]}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => actions.openEditModal(log.id, log.answer)}
+                      className="text-blue-600 hover:text-blue-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => actions.setDeleteConfirm({ logId: log.id, answer: log.answer })}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Load More Buttons */}
           {displayCount < filters.filteredLogs.length && (
-            <div className="flex gap-2 mt-6 justify-center">
+            <div className="flex gap-2 mt-4 justify-center">
               <button
                 onClick={() => setDisplayCount(prev => prev + LOAD_MORE_COUNT)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
               >
                 โหลดเพิ่มเติม ({LOAD_MORE_COUNT} รายการ)
               </button>
               <button
                 onClick={() => setDisplayCount(filters.filteredLogs.length)}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
               >
                 โหลดทั้งหมด ({filters.filteredLogs.length} รายการ)
               </button>
-            </div>
-          )}
-
-          {/* No Results */}
-          {filters.filteredLogs.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">ไม่พบข้อมูล</h3>
-              <p className="mt-1 text-sm text-gray-500">ลองปรับเปลี่ยนตัวกรองเพื่อค้นหาข้อมูลอื่น</p>
             </div>
           )}
         </div>
