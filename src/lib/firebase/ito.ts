@@ -539,18 +539,6 @@ async function logPlayerAnswer(
       createdAt: serverTimestamp(),
     });
 
-    if (isEdited) {
-      console.log('📊 Game log saved (EDITED):', {
-        questionId,
-        ageRange,
-        number,
-        previousAnswer: previousAnswer,
-        newAnswer: answer,
-        isTest
-      });
-    } else {
-      console.log('📊 Game log saved (ORIGINAL):', { questionId, ageRange, number, answer, isTest });
-    }
   } catch (error) {
     // ไม่ throw error เพราะไม่ต้องการให้ log ล้มเหลวทำให้เกมหยุด
     console.error('⚠️ Failed to log player answer (non-critical):', error);
@@ -580,32 +568,28 @@ export async function submitPlayerAnswer(
       submittedAt: serverTimestamp(),
     });
 
-    // ดึงข้อมูล game state และ player answer เพื่อ log
-    const sessionRef = doc(db, 'game_sessions', sessionId);
-    const sessionSnap = await getDoc(sessionRef);
-    const answerSnap = await getDoc(answerRef);
+    // เช็คว่าคำตอบเปลี่ยนจริงหรือไม่ ก่อนจะ log
+    if (previousAnswer !== answer) {
+      // ดึงข้อมูล game state และ player answer เพื่อ log
+      const sessionRef = doc(db, 'game_sessions', sessionId);
+      const sessionSnap = await getDoc(sessionRef);
+      const answerSnap = await getDoc(answerRef);
 
-    if (sessionSnap.exists() && answerSnap.exists()) {
-      const gameState = sessionSnap.data();
-      const playerAnswer = answerSnap.data();
+      if (sessionSnap.exists() && answerSnap.exists()) {
+        const gameState = sessionSnap.data();
+        const playerAnswer = answerSnap.data();
 
-      // บันทึก log (async, ไม่รอผลลัพธ์)
-      // ส่ง previousAnswer เพื่อให้รู้ว่าเป็นการแก้ไขหรือไม่
-      logPlayerAnswer(
-        gameState.questionId,
-        playerAnswer.number,
-        answer,
-        previousAnswer
-      ).catch((err) => console.error('Log error:', err));
+        // บันทึก log (async, ไม่รอผลลัพธ์)
+        // ส่ง previousAnswer เพื่อให้รู้ว่าเป็นการแก้ไขหรือไม่
+        logPlayerAnswer(
+          gameState.questionId,
+          playerAnswer.number,
+          answer,
+          previousAnswer
+        ).catch((err) => console.error('Log error:', err));
+      }
     }
 
-    console.log('✅ Player answer submitted:', {
-      sessionId,
-      playerId,
-      answerIndex,
-      answer,
-      previousAnswer: previousAnswer || '(none)',
-    });
     return true;
   } catch (error) {
     console.error('❌ Error submitting answer:', error);
@@ -629,11 +613,6 @@ export async function unsendPlayerAnswer(
       submittedAt: null,
     });
 
-    console.log('✅ Player answer unsent (ready for edit):', {
-      sessionId,
-      playerId,
-      answerIndex,
-    });
     return true;
   } catch (error) {
     console.error('❌ Error unsending answer:', error);
@@ -1273,7 +1252,6 @@ export async function deleteGameLog(logId: string): Promise<boolean> {
     const logRef = doc(db, 'ito_game_logs', logId);
     await deleteDoc(logRef);
 
-    console.log('✅ Game log deleted:', logId);
     return true;
   } catch (error) {
     console.error('❌ Error deleting game log:', error);
@@ -1295,7 +1273,6 @@ export async function deleteGameLogs(logIds: string[]): Promise<boolean> {
 
     await batch.commit();
 
-    console.log('✅ Game logs deleted:', logIds.length);
     return true;
   } catch (error) {
     console.error('❌ Error deleting game logs:', error);
@@ -1312,11 +1289,29 @@ export async function updateGameLogAnswer(
 ): Promise<boolean> {
   try {
     const logRef = doc(db, 'ito_game_logs', logId);
+
+    // ดึงข้อมูลเดิมก่อน
+    const logSnap = await getDoc(logRef);
+    if (!logSnap.exists()) {
+      console.error('❌ Log not found:', logId);
+      return false;
+    }
+
+    const currentData = logSnap.data();
+    const currentAnswer = currentData.answer;
+
+    // ถ้าคำตอบเหมือนเดิม ไม่ต้องทำอะไร
+    if (currentAnswer === newAnswer) {
+      return true;
+    }
+
+    // อัพเดทพร้อมเก็บ log
     await updateDoc(logRef, {
       answer: newAnswer,
+      isEdited: true,
+      previousAnswer: currentData.isEdited ? currentData.previousAnswer : currentAnswer,
     });
 
-    console.log('✅ Game log answer updated:', logId);
     return true;
   } catch (error) {
     console.error('❌ Error updating game log answer:', error);

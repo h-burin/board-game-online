@@ -78,7 +78,6 @@ export default function ItoGameLogsPage() {
     try {
       const success = await deleteGameLogs(logIds);
       if (success) {
-        console.log('✅ Logs deleted successfully');
         setDeleteConfirm(null);
       } else {
         alert('เกิดข้อผิดพลาดในการลบ log');
@@ -99,14 +98,12 @@ export default function ItoGameLogsPage() {
     try {
       const success = await updateGameLogAnswer(editingLog.logId, editedAnswer.trim());
       if (success) {
-        console.log('✅ Answer updated successfully');
         setEditingLog(null);
         setEditedAnswer("");
       } else {
         alert('เกิดข้อผิดพลาดในการแก้ไขคำตอบ');
       }
     } catch (error) {
-      console.error('Error updating answer:', error);
       alert('เกิดข้อผิดพลาดในการแก้ไขคำตอบ');
     } finally {
       setIsUpdating(false);
