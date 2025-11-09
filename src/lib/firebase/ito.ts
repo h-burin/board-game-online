@@ -493,18 +493,71 @@ async function cleanupPlayerAnswers(sessionId: string): Promise<void> {
 
 /**
  * ตรวจสอบว่าคำตอบเป็นคำตอบทดสอบหรือไม่
- * คำตอบทดสอบ = ตัวเลขอย่างเดียว (อาจมี space, comma, hyphen)
- * ตัวอย่าง test: "1", "12", "1 2", "1,2,3", "1-10"
- * ตัวอย่าง NOT test: "25ปี", "100บาท", "โสด"
+ * คำตอบทดสอบ =
+ * 1. ตัวเลขอย่างเดียว (อาจมี space, comma, hyphen)
+ * 2. ตัวอักษรสุ่มที่ไม่มีความหมาย (พิมพ์ซ้ำ ๆ หรือ keyboard mashing)
+ *
+ * ตัวอย่าง test: "1", "12", "1 2", "1,2,3", "1-10", "asdaddas", "กหดฟหกดกหด", "asdf"
+ * ตัวอย่าง NOT test: "25ปี", "100บาท", "โสด", "รถยนต์"
  */
 function isTestAnswer(answer: string): boolean {
   if (!answer || answer.trim() === '') return false;
 
-  // ลบ space, comma, hyphen ออก - ถ้าเหลือแต่ตัวเลขอย่างเดียว = test answer
-  const cleaned = answer.replace(/[\s,\-]/g, '');
+  const trimmed = answer.trim();
 
-  // ตรวจสอบว่าเหลือแต่ตัวเลข 0-9 เท่านั้น
-  return /^\d+$/.test(cleaned);
+  // 1. ตรวจสอบว่าเป็นตัวเลขอย่างเดียวหรือไม่
+  const cleaned = trimmed.replace(/[\s,\-]/g, '');
+  if (/^\d+$/.test(cleaned)) {
+    return true; // เป็นตัวเลขอย่างเดียว
+  }
+
+  // 2. ตรวจสอบว่าเป็นตัวอักษรสุ่มที่ไม่มีความหมาย
+  // - ถ้ามีตัวอักษรซ้ำกันมากกว่า 40% ของความยาว
+  // - ถ้าเป็น keyboard pattern เช่น "asdf", "qwerty"
+
+  // นับตัวอักษรที่ซ้ำกัน
+  const charCount: { [key: string]: number } = {};
+  const lowerAnswer = trimmed.toLowerCase();
+
+  for (const char of lowerAnswer) {
+    charCount[char] = (charCount[char] || 0) + 1;
+  }
+
+  // หาตัวอักษรที่ปรากฏมากที่สุด
+  const maxCount = Math.max(...Object.values(charCount));
+  const repeatRatio = maxCount / trimmed.length;
+
+  // ถ้าตัวอักษรซ้ำกันมากกว่า 40% ถือว่าเป็น test
+  if (repeatRatio > 0.4) {
+    return true;
+  }
+
+  // ตรวจสอบ keyboard patterns ที่พิมพ์ติด ๆ กัน (เช่น asdf, qwer)
+  const keyboardPatterns = [
+    'qwertyuiop',
+    'asdfghjkl',
+    'zxcvbnm',
+    'ๅภถุึคตจขชๆไำพะัีรนยบลฃฟหกดเ้่าสวงผปแอิืทมใฝ',
+    '1234567890',
+    'abcdefghijklmnopqrstuvwxyz'
+  ];
+
+  for (const pattern of keyboardPatterns) {
+    // ตรวจสอบทั้งซ้ายไปขวาและขวาไปซ้าย
+    for (let i = 0; i < pattern.length - 2; i++) {
+      const substring = pattern.substring(i, i + 3);
+      if (lowerAnswer.includes(substring) && trimmed.length <= 15) {
+        return true; // พบ pattern และคำตอบสั้น = น่าจะเป็น test
+      }
+    }
+  }
+
+  // ถ้าคำตอบสั้นมาก (<=3 ตัวอักษร) และไม่ใช่คำที่มีความหมาย
+  if (trimmed.length <= 3) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -1305,11 +1358,15 @@ export async function updateGameLogAnswer(
       return true;
     }
 
+    // ตรวจสอบว่าคำตอบใหม่เป็นคำตอบทดสอบหรือไม่
+    const isTest = isTestAnswer(newAnswer);
+
     // อัพเดทพร้อมเก็บ log
     await updateDoc(logRef, {
       answer: newAnswer,
       isEdited: true,
       previousAnswer: currentData.isEdited ? currentData.previousAnswer : currentAnswer,
+      isTest, // อัพเดท isTest ด้วย
     });
 
     return true;
