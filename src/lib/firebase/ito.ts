@@ -1139,6 +1139,11 @@ export async function revealAndCheck(
       newPhase,
       newStatus,
       newHearts,
+      // เพิ่ม debug info
+      totalRounds: gameState.totalRounds,
+      revealedCount: newRevealedNumbers.length,
+      calculation: `${newRevealedNumbers.length} >= ${gameState.totalRounds} = ${allRevealedInLevel}`,
+      onlyOneLeftCalc: `${newRevealedNumbers.length} === ${gameState.totalRounds - 1} = ${onlyOneLeft}`,
     });
 
     // ถ้าเหลือเลขสุดท้าย 1 ตัว ให้เปิดเลขนั้นอัตโนมัติด้วย

@@ -368,6 +368,19 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       const allRevealedInLevel =
         gameState.revealedNumbers.length >= gameState.totalRounds;
 
+      console.log('🎮 [Frontend] Auto-transition check:', {
+        phase: gameState.phase,
+        status: gameState.status,
+        revealedCount: gameState.revealedNumbers.length,
+        totalRounds: gameState.totalRounds,
+        revealedNumbers: gameState.revealedNumbers,
+        allRevealedInLevel,
+        willTransitionTo:
+          gameState.status === "lost" ? "finished (lost)" :
+          gameState.status === "won" ? "finished (won)" :
+          allRevealedInLevel ? "levelComplete" : "voting"
+      });
+
       if (gameState.status === "lost") {
         await updateDoc(sessionRef, {
           phase: "finished",
