@@ -1109,11 +1109,9 @@ export async function revealAndCheck(
     // currentRound = จำนวนครั้งที่โหวต (ไม่ใช่จำนวนเลขที่เปิด)
     const newRound = gameState.currentRound + 1;
 
-    // ตรวจสอบว่า Level นี้จบหรือยัง (เช็คจากจำนวนเลขที่เปิด ไม่ใช่ round)
+    // ตรวจสอบว่า Level นี้จบหรือยัง (เช็คจากจำนวนเลขที่เปิด)
     const allRevealedInLevel = newRevealedNumbers.length >= gameState.totalRounds;
-    // ❌ เอา onlyOneLeft ออก เพราะไม่ auto-reveal แล้ว
-    // const onlyOneLeft = newRevealedNumbers.length === gameState.totalRounds - 1;
-    const isLevelComplete = allRevealedInLevel; // จบก็ต่อเมื่อเปิดครบทุกเลขเท่านั้น
+    const isLevelComplete = allRevealedInLevel;
 
     // ตรวจสอบว่าเกมทั้งหมดจบหรือไม่
     // เปลี่ยนเป็น reveal เสมอ แล้วให้ frontend auto-transition
@@ -1133,49 +1131,47 @@ export async function revealAndCheck(
 
     console.log('🔍 Debug - Game status:', {
       allRevealedInLevel,
-      // onlyOneLeft, // ลบออกเพราะไม่ใช้แล้ว
       isLevelComplete,
       currentLevel: gameState.currentLevel,
       totalLevels: gameState.totalLevels,
       newPhase,
       newStatus,
       newHearts,
-      // เพิ่ม debug info
       totalRounds: gameState.totalRounds,
       revealedCount: newRevealedNumbers.length,
       calculation: `${newRevealedNumbers.length} >= ${gameState.totalRounds} = ${allRevealedInLevel}`,
-      // onlyOneLeftCalc: `${newRevealedNumbers.length} === ${gameState.totalRounds - 1} = ${onlyOneLeft}`, // ลบออก
     });
 
-    // ถ้าเหลือเลขสุดท้าย 1 ตัว ให้เปิดเลขนั้นอัตโนมัติด้วย
+    // Auto-reveal เลขสุดท้าย (ถ้ายังมีหัวใจและเหลือเลข 1 ตัว)
     let finalRevealedNumbers = newRevealedNumbers;
-    // ❌ ปิด auto-reveal ชั่วคราว เพื่อให้โหวตจนครบทุกเลข
-    // if (onlyOneLeft && newHearts > 0) {
-    //   // หาเลขทั้งหมดที่ยังไม่ถูกเปิด (ไม่รวม numbersToReveal ที่เพิ่งเปิด)
-    //   const remainingNumbers = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
 
-    //   console.log('🔍 Auto-reveal last number check:', {
-    //     unrevealedNumbers,
-    //     numbersToReveal,
-    //     remainingNumbers,
-    //     shouldAutoReveal: remainingNumbers.length === 1,
-    //   });
+    // หาเลขที่ยังไม่ถูกเปิด (หลังจากเปิดรอบนี้แล้ว)
+    const remainingNumbers = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
 
-    //   // ต้องเหลือพอดี 1 ตัว
-    //   if (remainingNumbers.length === 1) {
-    //     const lastNumber = remainingNumbers[0];
-    //     finalRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
+    console.log('🔍 Auto-reveal check:', {
+      beforeReveal: unrevealedNumbers,
+      justRevealed: numbersToReveal,
+      stillUnrevealed: remainingNumbers,
+      shouldAutoReveal: remainingNumbers.length === 1 && newHearts > 0,
+    });
 
-    //     // Mark เลขสุดท้ายว่าเปิดแล้วด้วย
-    //     const lastPlayerAnswer = answersSnap.docs.find(
-    //       (doc) => doc.data().number === lastNumber
-    //     );
-    //     if (lastPlayerAnswer) {
-    //       await updateDoc(lastPlayerAnswer.ref, { isRevealed: true });
-    //       console.log('✅ Auto-revealed last number:', lastNumber);
-    //     }
-    //   }
-    // }
+    // ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → เปิดเลขสุดท้ายอัตโนมัติ
+    if (remainingNumbers.length === 1 && newHearts > 0) {
+      const lastNumber = remainingNumbers[0];
+      finalRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
+
+      // Mark เลขสุดท้ายว่าเปิดแล้ว
+      const lastPlayerAnswer = answersSnap.docs.find(
+        (doc) => doc.data().number === lastNumber
+      );
+      if (lastPlayerAnswer) {
+        await updateDoc(lastPlayerAnswer.ref, {
+          isRevealed: true,
+          isCorrect: true // เลขสุดท้ายถือว่าถูกเสมอ
+        });
+        console.log('✅ Auto-revealed last number:', lastNumber);
+      }
+    }
 
     // อัปเดต game state พร้อม lastRevealResult เพื่อให้ทุกเครื่องเห็น
     await updateDoc(sessionRef, {
