@@ -5,7 +5,7 @@
 
 "use client";
 
-import PlayerStatusTracker from "../PlayerStatusTracker";
+import { useState } from "react";
 import RevealedNumbersList from "../RevealedNumbersList";
 import {
   calculatePlayerSubmissionStatus,
@@ -49,6 +49,8 @@ export default function WritingPhase({
   handleSubmitAnswer,
   handleEditAnswer,
 }: WritingPhaseProps) {
+  const [showStatus, setShowStatus] = useState(false);
+
   const uniquePlayerIds = Array.from(
     new Set(playerAnswers.map((a) => a.playerId))
   );
@@ -63,6 +65,12 @@ export default function WritingPhase({
   const { playersCompleted, playersNotCompleted } =
     separateCompletedPlayers(playerSubmissionStatus);
 
+  // คำนวณจำนวนคำใบ้ที่ส่งแล้ว vs จำนวนทั้งหมด
+  const totalHintsExpected = totalPlayers * expectedAnswersPerPlayer;
+  const totalHintsSubmitted = playerAnswers.filter(
+    (ans) => ans.answer.trim() !== "" && ans.submittedAt
+  ).length;
+
   return (
     <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20">
       <h3 className="text-xl md:text-2xl font-bold text-white mb-3 md:mb-4">
@@ -71,14 +79,6 @@ export default function WritingPhase({
       <p className="text-white/70 mb-4 md:mb-6 text-sm md:text-base">
         ให้คำใบ้ที่สื่อถึงตัวเลขของคุณ โดยไม่ต้องบอกตัวเลข
       </p>
-
-      {/* สถานะการส่งคำใบ้ของผู้เล่น */}
-      <PlayerStatusTracker
-        title="สถานะการส่งคำใบ้"
-        playersCompleted={playersCompleted}
-        playersNotCompleted={playersNotCompleted}
-        totalPlayers={totalPlayers}
-      />
 
       {/* ประวัติเลขที่เปิดแล้ว */}
       <RevealedNumbersList revealedNumbers={gameState.revealedNumbers} />
@@ -181,6 +181,39 @@ export default function WritingPhase({
           ✓ ส่งคำตอบครบทุกเลขแล้ว รอผู้เล่นคนอื่น...
         </div>
       )}
+
+      {/* สถานะผู้เล่น - Minimal Design */}
+      <div className="mt-6 pt-6 border-t border-white/10">
+        <button
+          onClick={() => setShowStatus(!showStatus)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs"
+        >
+          <span>💭</span>
+          <span>สถานะการส่งคำใบ้: {totalHintsSubmitted}/{totalHintsExpected}</span>
+          <span className="ml-1">{showStatus ? "▼" : "▶"}</span>
+        </button>
+
+        {showStatus && (
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            {playersCompleted.map((p, i) => (
+              <div
+                key={i}
+                className="px-2 py-1 bg-green-500/20 text-green-300 rounded border border-green-500/30"
+              >
+                ✓ {p.playerName}
+              </div>
+            ))}
+            {playersNotCompleted.map(([id, p]) => (
+              <div
+                key={id}
+                className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded border border-orange-500/30"
+              >
+                {p.playerName} ({p.submittedCount}/{p.totalExpected})
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

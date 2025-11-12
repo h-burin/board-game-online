@@ -93,6 +93,12 @@ export default function VotingPhase({
     (id) => !votedPlayerIds.includes(id)
   );
 
+  // คำนวณจำนวนคำใบ้ที่ส่งแล้ว vs จำนวนทั้งหมด
+  const totalHintsExpected = totalPlayers * expectedAnswersPerPlayer;
+  const totalHintsSubmitted = playerAnswers.filter(
+    (ans) => ans.answer.trim() !== "" && ans.submittedAt
+  ).length;
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* ส่วนพิมพ์คำใบ้ของตัวเอง */}
@@ -173,149 +179,12 @@ export default function VotingPhase({
         {/* ประวัติเลขที่เปิดแล้ว */}
         <RevealedNumbersList revealedNumbers={gameState.revealedNumbers} />
 
-        {/* Tab Navigation สำหรับสถานะ */}
-        <div className="bg-white/5 rounded-xl p-3 md:p-4 mb-4 md:mb-6">
-          {/* Tab Headers */}
-          <div className="flex gap-2 mb-3 md:mb-4">
-            <button
-              onClick={() => setStatusTab("hints")}
-              className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-semibold transition-all text-xs md:text-base ${
-                statusTab === "hints"
-                  ? "bg-blue-500 text-white shadow-lg"
-                  : "bg-white/10 text-white/60 hover:bg-white/20"
-              }`}
-            >
-              <div className="hidden md:block">สถานะการส่งคำใบ้</div>
-              <div className="md:hidden">คำใบ้</div>
-              <div className="text-xs md:text-sm mt-1">
-                {playersCompleted.length} / {totalPlayers}
-              </div>
-            </button>
-            <button
-              onClick={() => setStatusTab("votes")}
-              className={`flex-1 py-2 md:py-3 px-2 md:px-4 rounded-lg font-semibold transition-all text-xs md:text-base ${
-                statusTab === "votes"
-                  ? "bg-blue-500 text-white shadow-lg"
-                  : "bg-white/10 text-white/60 hover:bg-white/20"
-              }`}
-            >
-              <div className="hidden md:block">สถานะการโหวต</div>
-              <div className="md:hidden">โหวต</div>
-              <div className="text-xs md:text-sm mt-1">
-                {voteCount} / {totalPlayers}
-              </div>
-            </button>
+        {/* แสดง warning หากยังพิมพ์ไม่ครบ */}
+        {!allPlayersSubmittedAll && (
+          <div className="text-center text-orange-300 text-sm mb-4 bg-orange-500/20 rounded-lg py-2">
+            ⚠️ รอให้ทุกคนพิมพ์คำใบ้ครบก่อนโหวต
           </div>
-
-          {/* Tab Content */}
-          {statusTab === "hints" ? (
-            <div>
-              <div className="text-center text-white/70 mb-2 md:mb-3 text-xs md:text-sm">
-                {playersCompleted.length} / {totalPlayers} คนส่งครบแล้ว
-              </div>
-
-              {!allPlayersSubmittedAll && (
-                <div className="text-center text-orange-300 text-xs md:text-sm mb-2 md:mb-3 bg-orange-500/20 rounded-lg py-2">
-                  ⚠️ รอให้ทุกคนพิมพ์คำใบ้ครบก่อนโหวต
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2 md:gap-4">
-                {/* ส่งครบแล้ว */}
-                <div>
-                  <div className="text-green-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
-                    ✅ ส่งครบแล้ว
-                  </div>
-                  <div className="space-y-1">
-                    {playersCompleted.map((p, i) => (
-                      <div
-                        key={i}
-                        className="text-white/80 text-xs md:text-sm text-center bg-green-500/20 rounded py-1"
-                      >
-                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ยังส่งไม่ครบ */}
-                <div>
-                  <div className="text-orange-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
-                    ⏳ ยังส่งไม่ครบ
-                  </div>
-                  <div className="space-y-1">
-                    {playersNotCompleted.map(([id, p]) => (
-                      <div
-                        key={id}
-                        className="text-white/50 text-xs md:text-sm text-center bg-orange-500/20 rounded py-1"
-                      >
-                        {p.playerName} ({p.submittedCount}/{p.totalExpected})
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-center text-white/70 mb-2 md:mb-3 text-xs md:text-sm">
-                {voteCount} / {totalPlayers} คนโหวตแล้ว
-              </div>
-
-              {!allPlayersSubmittedAll && (
-                <div className="text-center text-orange-300 text-xs md:text-sm mb-2 md:mb-3 bg-orange-500/20 rounded-lg py-2">
-                  ⚠️ ต้องพิมพ์คำใบ้ครบก่อนจึงจะโหวตได้
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-2 md:gap-4">
-                {/* โหวตแล้ว */}
-                <div>
-                  <div className="text-green-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
-                    ✓ โหวตแล้ว ({playersWhoVoted.length})
-                  </div>
-                  <div className="space-y-1">
-                    {playersWhoVoted.map((id) => {
-                      const player = playerAnswers.find(
-                        (a) => a.playerId === id
-                      );
-                      return (
-                        <div
-                          key={id}
-                          className="text-white/80 text-xs md:text-sm text-center bg-green-500/20 rounded py-1"
-                        >
-                          {player?.playerName}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ยังไม่โหวต */}
-                <div>
-                  <div className="text-orange-400 text-xs md:text-sm mb-1 md:mb-2 text-center">
-                    ⏳ รอโหวต ({playersWhoNotVoted.length})
-                  </div>
-                  <div className="space-y-1">
-                    {playersWhoNotVoted.map((id) => {
-                      const player = playerAnswers.find(
-                        (a) => a.playerId === id
-                      );
-                      return (
-                        <div
-                          key={id}
-                          className="text-white/50 text-xs md:text-sm text-center bg-orange-500/20 rounded py-1"
-                        >
-                          {player?.playerName}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* ส่วนโหวต - แสดงเฉพาะเมื่อทุกคนส่งครบแล้ว */}
         {allPlayersSubmittedAll ? (
@@ -416,6 +285,81 @@ export default function VotingPhase({
             <div className="text-white/50 text-xs md:text-sm">
               จึงจะสามารถโหวตได้
             </div>
+          </div>
+        )}
+
+        {/* สถานะผู้เล่น - Minimal Design */}
+        <div className="mt-6 flex gap-3 text-xs text-white/60">
+          <button
+            onClick={() => setStatusTab("hints")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              statusTab === "hints"
+                ? "bg-white/10 text-white"
+                : "hover:bg-white/5"
+            }`}
+          >
+            <span>💭</span>
+            <span>คำใบ้: {totalHintsSubmitted}/{totalHintsExpected}</span>
+          </button>
+          <button
+            onClick={() => setStatusTab("votes")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+              statusTab === "votes"
+                ? "bg-white/10 text-white"
+                : "hover:bg-white/5"
+            }`}
+          >
+            <span>🗳️</span>
+            <span>โหวต: {voteCount}/{totalPlayers}</span>
+          </button>
+        </div>
+
+        {/* แสดงรายละเอียดตาม tab ที่เลือก */}
+        {statusTab === "hints" && (
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {playersCompleted.map((p, i) => (
+              <div
+                key={i}
+                className="px-2 py-1 bg-green-500/20 text-green-300 rounded border border-green-500/30"
+              >
+                {p.playerName}
+              </div>
+            ))}
+            {playersNotCompleted.map(([id, p]) => (
+              <div
+                key={id}
+                className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded border border-orange-500/30"
+              >
+                {p.playerName} ({p.submittedCount}/{p.totalExpected})
+              </div>
+            ))}
+          </div>
+        )}
+
+        {statusTab === "votes" && (
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {playersWhoVoted.map((id) => {
+              const player = playerAnswers.find((a) => a.playerId === id);
+              return (
+                <div
+                  key={id}
+                  className="px-2 py-1 bg-green-500/20 text-green-300 rounded border border-green-500/30"
+                >
+                  {player?.playerName}
+                </div>
+              );
+            })}
+            {playersWhoNotVoted.map((id) => {
+              const player = playerAnswers.find((a) => a.playerId === id);
+              return (
+                <div
+                  key={id}
+                  className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded border border-orange-500/30"
+                >
+                  {player?.playerName}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
