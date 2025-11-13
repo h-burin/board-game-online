@@ -143,3 +143,58 @@ export async function startGame(roomId: string): Promise<void> {
     throw new Error('ไม่สามารถเริ่มเกมได้');
   }
 }
+
+/**
+ * Update Room Settings - อัพเดทการตั้งค่าห้อง (เฉพาะ host)
+ */
+export async function updateRoomSettings(
+  roomId: string,
+  hostId: string,
+  settings: {
+    maxPlayers?: number;
+    timeLimit?: number;
+  }
+): Promise<void> {
+  try {
+    // Verify room exists and user is host
+    const roomRef = doc(db, 'rooms', roomId);
+    const roomSnap = await getDoc(roomRef);
+
+    if (!roomSnap.exists()) {
+      throw new Error('ไม่พบห้อง');
+    }
+
+    const roomData = roomSnap.data();
+
+    if (roomData.hostId !== hostId) {
+      throw new Error('เฉพาะ host เท่านั้นที่สามารถเปลี่ยนการตั้งค่าได้');
+    }
+
+    // Guard: maxPlayers must be >= current players
+    if (settings.maxPlayers !== undefined) {
+      if (settings.maxPlayers < roomData.currentPlayers) {
+        throw new Error(`จำนวนผู้เล่นสูงสุดต้องมากกว่าหรือเท่ากับจำนวนผู้เล่นปัจจุบัน (${roomData.currentPlayers} คน)`);
+      }
+    }
+
+    // Update only provided settings
+    const updateData: Record<string, unknown> = {
+      updatedAt: serverTimestamp(),
+    };
+
+    if (settings.maxPlayers !== undefined) {
+      updateData.maxPlayers = settings.maxPlayers;
+    }
+
+    if (settings.timeLimit !== undefined) {
+      updateData.timeLimit = settings.timeLimit;
+    }
+
+    await updateDoc(roomRef, updateData);
+
+    console.log(`✅ Updated room settings in room ${roomId}`);
+  } catch (error) {
+    console.error('Error updating room settings:', error);
+    throw error;
+  }
+}

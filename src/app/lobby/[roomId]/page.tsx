@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { LuPencil , LuCheck , LuX} from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRoom } from "@/lib/hooks/useRoom";
@@ -32,6 +33,8 @@ export default function LobbyPage({ params }: LobbyPageProps) {
   const [copied, setCopied] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [editingMaxPlayers, setEditingMaxPlayers] = useState(false);
+  const [newMaxPlayers, setNewMaxPlayers] = useState<number>(0);
 
   // Get playerId from localStorage
   useEffect(() => {
@@ -196,6 +199,40 @@ export default function LobbyPage({ params }: LobbyPageProps) {
     }
   };
 
+  // Handle Update Max Players
+  const handleUpdateMaxPlayers = async () => {
+    if (!isHost || !playerId || !room) return;
+
+    setActionLoading(true);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}/update-settings`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          hostId: playerId,
+          maxPlayers: newMaxPlayers,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setEditingMaxPlayers(false);
+      } else {
+        setActionError(data.error || "ไม่สามารถอัพเดทการตั้งค่าได้");
+      }
+    } catch (error) {
+      console.error("Update settings error:", error);
+      setActionError("เกิดข้อผิดพลาดในการอัพเดทการตั้งค่า");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Handle Start Game
   const handleStartGame = async () => {
     if (!isHost || !room || !canStartGame || !playerId) return;
@@ -342,9 +379,70 @@ export default function LobbyPage({ params }: LobbyPageProps) {
             <h2 className="text-base md:text-xl font-bold text-white">
               ผู้เล่นทั้งหมด
             </h2>
-            <span className="text-sm md:text-base text-white/70 font-semibold">
-              {room.currentPlayers}/{room.maxPlayers} คน
-            </span>
+
+            {/* Max Players - Editable by Host */}
+            {isHost ? (
+              <div className="flex items-center gap-2">
+                {editingMaxPlayers ? (
+                  <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5 border border-white/20">
+                    <span className="text-white/70 text-sm">{room.currentPlayers}/</span>
+                    <input
+                      type="number"
+                      min={room.currentPlayers}
+                      max={selectedGame?.maxPlayer || 10}
+                      value={newMaxPlayers}
+                      onChange={(e) =>
+                        setNewMaxPlayers(parseInt(e.target.value))
+                      }
+                      className="w-12 bg-white/20 text-white text-center rounded px-1 py-0.5 text-sm font-semibold border border-white/30 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                    />
+                    <span className="text-white/70 text-sm">คน</span>
+                    <div className="flex gap-1 ml-1">
+                      <button
+                        onClick={handleUpdateMaxPlayers}
+                        disabled={
+                          actionLoading || newMaxPlayers < room.currentPlayers || newMaxPlayers > (selectedGame?.maxPlayer || 10)
+                        }
+                        className="p-1.5 rounded bg-green-500/30 hover:bg-green-500/50 text-green-300 hover:text-green-200 border border-green-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                        title="บันทึก"
+                      >
+                        <LuCheck className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setEditingMaxPlayers(false)}
+                        disabled={actionLoading}
+                        className="p-1.5 rounded bg-red-500/30 hover:bg-red-500/50 text-red-300 hover:text-red-200 border border-red-500/40 transition-all"
+                        title="ยกเลิก"
+                      >
+                        <LuX className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-1.5 transition-all group">
+                    <span className="text-sm md:text-base text-white/70 font-semibold">
+                      {room.currentPlayers}/{room.maxPlayers} คน
+                    </span>
+                    <button
+                      onClick={() => {
+                        setNewMaxPlayers(room.maxPlayers);
+                        setEditingMaxPlayers(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/20 text-white/60 hover:text-white"
+                      title="แก้ไขจำนวนผู้เล่น"
+                    >
+                      <LuPencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white/5 rounded-lg px-3 py-1.5">
+                <span className="text-sm md:text-base text-white/70 font-semibold">
+                  {room.currentPlayers}/{room.maxPlayers} คน
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Players List */}
@@ -392,7 +490,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                       )}
                       {player.isReady && !player.isHost && (
                         <span className="bg-green-500/30 text-green-200 px-2 md:px-3 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold border border-green-400/30">
-                          Ready
+                          พร้อม
                         </span>
                       )}
                     </div>
@@ -443,7 +541,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                   <p className="text-center text-yellow-200 text-xs md:text-sm">
                     {room.currentPlayers < minPlayers
                       ? `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน`
-                      : "ผู้เล่นทุกคนต้องกด Ready ก่อน"}
+                      : "ผู้เล่นทุกคนต้องกด พร้อม ก่อน"}
                   </p>
                 )}
               </>
@@ -461,8 +559,8 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                 {actionLoading
                   ? "กำลังโหลด..."
                   : currentPlayer?.isReady
-                  ? "ยกเลิก Ready"
-                  : "Ready"}
+                  ? "ยกเลิกความพร้อม"
+                  : "พร้อมแล้ว"}
               </button>
             )}
 
