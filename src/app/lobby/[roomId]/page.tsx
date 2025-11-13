@@ -397,7 +397,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                       className="w-12 bg-white/20 text-white text-center rounded px-1 py-0.5 text-sm font-semibold border border-white/30 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                     />
                     <span className="text-white/70 text-sm">คน</span>
-                    <div className="flex gap-1 ml-1">
+                    <div className="flex gap-2 ml-1">
                       <button
                         onClick={handleUpdateMaxPlayers}
                         disabled={
@@ -419,7 +419,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-1.5 transition-all group">
+                  <div className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-1.5 transition-all">
                     <span className="text-sm md:text-base text-white/70 font-semibold">
                       {room.currentPlayers}/{room.maxPlayers} คน
                     </span>
@@ -428,7 +428,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                         setNewMaxPlayers(room.maxPlayers);
                         setEditingMaxPlayers(true);
                       }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-white/20 text-white/60 hover:text-white"
+                      className="p-1 rounded hover:bg-white/20 text-white/60 hover:text-white transition-colors"
                       title="แก้ไขจำนวนผู้เล่น"
                     >
                       <LuPencil className="w-3.5 h-3.5" />
@@ -541,7 +541,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                   <p className="text-center text-yellow-200 text-xs md:text-sm">
                     {room.currentPlayers < minPlayers
                       ? `ต้องมีผู้เล่นอย่างน้อย ${minPlayers} คน`
-                      : "ผู้เล่นทุกคนต้องกด พร้อม ก่อน"}
+                      : "ผู้เล่นทุกคนต้องกดพร้อมก่อน"}
                   </p>
                 )}
               </>
@@ -560,7 +560,7 @@ export default function LobbyPage({ params }: LobbyPageProps) {
                   ? "กำลังโหลด..."
                   : currentPlayer?.isReady
                   ? "ยกเลิกความพร้อม"
-                  : "พร้อมแล้ว"}
+                  : "พร้อม"}
               </button>
             )}
 
