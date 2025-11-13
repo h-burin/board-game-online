@@ -1030,155 +1030,89 @@ export async function revealAndCheck(
       };
     }
 
+    // 4. รวบรวมข้อมูลเลขทั้งหมด
     const unrevealedNumbers: number[] = [];
-    const allPlayerAnswers: { playerId: string; number: number; isRevealed: boolean }[] = [];
 
     answersSnap.docs.forEach((doc) => {
       const data = doc.data() as ItoPlayerAnswer;
-      allPlayerAnswers.push({
-        playerId: data.playerId, // แก้ไข: ใช้ field playerId ไม่ใช่ doc.id
-        number: data.number,
-        isRevealed: data.isRevealed,
-      });
-
       if (!data.isRevealed) {
         unrevealedNumbers.push(data.number);
       }
     });
 
-    console.log('🔍 Debug - All player answers:', allPlayerAnswers);
-    console.log('🔍 Debug - Unrevealed numbers (including selected):', unrevealedNumbers);
-    console.log('🔍 Debug - Selected player ID:', selectedPlayerId);
-    console.log('🔍 Debug - Selected number:', selectedNumber);
+    console.log('🔍 [1] Initial state:', {
+      selectedNumber,
+      unrevealedNumbers: unrevealedNumbers.sort((a, b) => a - b),
+      totalRounds: gameState.totalRounds,
+      currentHearts: gameState.hearts,
+    });
 
-    // 4. หาเลขที่น้อยที่สุดจากที่ยังไม่เปิด
-    // ตัวที่กำลังเลือกอยู่ (selectedNumber) ยังรวมอยู่ใน unrevealedNumbers
-    // เพราะยังไม่ถูก mark ว่า isRevealed = true
-    // ดังนั้นต้องตรวจสอบว่า selectedNumber เป็นตัวเล็กที่สุดหรือไม่
+    // 5. หาเลขที่น้อยที่สุดจากที่ยังไม่เปิด
     const smallestNumber = Math.min(...unrevealedNumbers);
-    console.log('🔍 Debug - Smallest unrevealed:', smallestNumber);
-
-    // 5. ตรวจสอบว่าถูกหรือไม่
-    // ถูก = เลือกตัวที่เล็กที่สุดใน unrevealed numbers
     const isCorrect = selectedNumber === smallestNumber;
-    console.log('🔍 Debug - Is correct?', isCorrect);
 
-    // 6. คำนวณหัวใจที่หาย
-    let heartsLost = 0;
-    if (!isCorrect) {
-      // นับว่าข้ามไปกี่ตัว
-      const skippedNumbers = unrevealedNumbers.filter((num) => num < selectedNumber);
-      heartsLost = skippedNumbers.length;
-    }
-
+    // 6. คำนวณหัวใจที่หาย (เสียหัวใจ = จำนวนเลขที่ข้ามไป)
+    const skippedNumbers = unrevealedNumbers.filter((num) => num < selectedNumber);
+    const heartsLost = isCorrect ? 0 : skippedNumbers.length;
     const newHearts = Math.max(0, gameState.hearts - heartsLost);
 
     // 7. หาเลขทั้งหมดที่ต้องเปิด (เลข ≤ selectedNumber)
     const numbersToReveal = unrevealedNumbers.filter((num) => num <= selectedNumber);
 
-    console.log('🔍 Numbers to reveal:', {
-      selectedNumber,
-      unrevealedNumbers,
+    console.log('🔍 [2] Reveal decision:', {
+      smallestNumber,
+      isCorrect,
+      skippedNumbers,
+      heartsLost,
+      newHearts,
       numbersToReveal,
-      count: numbersToReveal.length,
     });
 
-    // 8. Mark ทุกเลขที่ต้องเปิดเป็น isRevealed = true + เซ็ต isCorrect
-    const markRevealedPromises = answersSnap.docs
-      .filter((doc) => {
-        const data = doc.data() as ItoPlayerAnswer;
-        return !data.isRevealed && numbersToReveal.includes(data.number);
-      })
-      .map((doc) => {
-        const data = doc.data() as ItoPlayerAnswer;
-        // ถูก = เลขที่เลือก (selectedNumber), ผิด = เลขอื่นๆ ที่โดนเปิดด้วย
+    // 8. ใช้ Batch Write เพื่อ update ทุกอย่างพร้อมกัน (atomic)
+    const batch = writeBatch(db);
+
+    // Mark ทุกเลขที่ต้องเปิด
+    answersSnap.docs.forEach((doc) => {
+      const data = doc.data() as ItoPlayerAnswer;
+      if (!data.isRevealed && numbersToReveal.includes(data.number)) {
         const isThisCorrect = data.number === selectedNumber;
-        return updateDoc(doc.ref, {
+        batch.update(doc.ref, {
           isRevealed: true,
           isCorrect: isThisCorrect
         });
-      });
+      }
+    });
 
-    await Promise.all(markRevealedPromises);
-    console.log(`✅ Marked ${markRevealedPromises.length} answers as revealed`);
-
-    // 9. อัปเดต game state
-    const newRevealedNumbers = [...gameState.revealedNumbers, ...numbersToReveal].sort(
-      (a, b) => a - b
-    );
-    // currentRound = จำนวนครั้งที่โหวต (ไม่ใช่จำนวนเลขที่เปิด)
+    // 9. คำนวณ game state ใหม่
+    const newRevealedNumbers = [...gameState.revealedNumbers, ...numbersToReveal].sort((a, b) => a - b);
     const newRound = gameState.currentRound + 1;
 
-    // ตรวจสอบว่า Level นี้จบหรือยัง (เช็คจากจำนวนเลขที่เปิด)
-    const allRevealedInLevel = newRevealedNumbers.length >= gameState.totalRounds;
-    const isLevelComplete = allRevealedInLevel;
+    // ตรวจสอบว่า Level นี้จบหรือยัง
+    const isLevelComplete = newRevealedNumbers.length >= gameState.totalRounds;
 
-    // ตรวจสอบว่าเกมทั้งหมดจบหรือไม่
-    // เปลี่ยนเป็น reveal เสมอ แล้วให้ frontend auto-transition
-    const newPhase: 'reveal' | 'levelComplete' | 'finished' = 'reveal';
+    // กำหนด status
     let newStatus: 'playing' | 'won' | 'lost' = 'playing';
-
     if (newHearts === 0) {
-      // หัวใจหมด = แพ้ทันที (แต่ยังแสดง reveal ก่อน)
       newStatus = 'lost';
-    } else if (isLevelComplete) {
-      // Level นี้จบแล้ว
-      if (gameState.currentLevel >= gameState.totalLevels) {
-        // จบ level สุดท้ายแล้ว
-        newStatus = 'won';
-      }
+    } else if (isLevelComplete && gameState.currentLevel >= gameState.totalLevels) {
+      newStatus = 'won';
     }
 
-    console.log('🔍 Debug - Game status:', {
-      allRevealedInLevel,
+    console.log('🔍 [3] Final state:', {
+      revealedNumbers: newRevealedNumbers,
+      revealedCount: newRevealedNumbers.length,
+      totalRounds: gameState.totalRounds,
       isLevelComplete,
-      currentLevel: gameState.currentLevel,
-      totalLevels: gameState.totalLevels,
-      newPhase,
       newStatus,
       newHearts,
-      totalRounds: gameState.totalRounds,
-      revealedCount: newRevealedNumbers.length,
-      calculation: `${newRevealedNumbers.length} >= ${gameState.totalRounds} = ${allRevealedInLevel}`,
     });
 
-    // Auto-reveal เลขสุดท้าย (ถ้ายังมีหัวใจและเหลือเลข 1 ตัว)
-    let finalRevealedNumbers = newRevealedNumbers;
-
-    // หาเลขที่ยังไม่ถูกเปิด (หลังจากเปิดรอบนี้แล้ว)
-    const remainingNumbers = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
-
-    console.log('🔍 Auto-reveal check:', {
-      beforeReveal: unrevealedNumbers,
-      justRevealed: numbersToReveal,
-      stillUnrevealed: remainingNumbers,
-      shouldAutoReveal: remainingNumbers.length === 1 && newHearts > 0,
-    });
-
-    // ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → เปิดเลขสุดท้ายอัตโนมัติ
-    if (remainingNumbers.length === 1 && newHearts > 0) {
-      const lastNumber = remainingNumbers[0];
-      finalRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
-
-      // Mark เลขสุดท้ายว่าเปิดแล้ว
-      const lastPlayerAnswer = answersSnap.docs.find(
-        (doc) => doc.data().number === lastNumber
-      );
-      if (lastPlayerAnswer) {
-        await updateDoc(lastPlayerAnswer.ref, {
-          isRevealed: true,
-          isCorrect: true // เลขสุดท้ายถือว่าถูกเสมอ
-        });
-        console.log('✅ Auto-revealed last number:', lastNumber);
-      }
-    }
-
-    // อัปเดต game state พร้อม lastRevealResult เพื่อให้ทุกเครื่องเห็น
-    await updateDoc(sessionRef, {
+    // 10. Update game state (ใช้ batch เพื่อ atomic update)
+    batch.update(sessionRef, {
       hearts: newHearts,
       currentRound: newRound,
-      revealedNumbers: finalRevealedNumbers,
-      phase: newPhase, // 'reveal', 'levelComplete', หรือ 'finished'
+      revealedNumbers: newRevealedNumbers,
+      phase: 'reveal',
       status: newStatus,
       lastRevealResult: {
         number: selectedNumber,
@@ -1189,20 +1123,22 @@ export async function revealAndCheck(
       updatedAt: serverTimestamp(),
     });
 
-    // 10. ลบ votes collection เพื่อเริ่มรอบใหม่
+    // 11. Commit batch (atomic operation)
+    await batch.commit();
+    console.log('✅ Batch committed: Updated answers + game state');
+
+    // 12. ลบ votes collection เพื่อเริ่มรอบใหม่
     const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
     const votesSnap = await getDocs(votesRef);
-    const deletePromises = votesSnap.docs.map((docSnap) => deleteDoc(docSnap.ref));
-    await Promise.all(deletePromises);
+    votesSnap.docs.forEach(async (docSnap) => await deleteDoc(docSnap.ref));
 
-    console.log('✅ Reveal and check completed:', {
+    console.log('✅ Reveal completed:', {
       selectedNumber,
       smallestNumber,
       isCorrect,
       heartsLost,
       newHearts,
-      allRevealedInLevel,
-      newPhase,
+      isLevelComplete,
       newStatus,
       revealedCount: newRevealedNumbers.length,
       totalRounds: gameState.totalRounds,
