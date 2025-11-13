@@ -1091,15 +1091,27 @@ export async function revealAndCheck(
     const remainingAfterReveal = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
 
     console.log('🔍 [3] Auto-reveal check:', {
-      unrevealedBefore: unrevealedNumbers,
-      justRevealed: numbersToReveal,
-      remainingAfter: remainingAfterReveal,
+      unrevealedBefore: unrevealedNumbers.sort((a, b) => a - b),
+      justRevealed: numbersToReveal.sort((a, b) => a - b),
+      remainingAfter: remainingAfterReveal.sort((a, b) => a - b),
+      remainingCount: remainingAfterReveal.length,
       shouldAutoReveal: remainingAfterReveal.length === 1 && newHearts > 0,
+      currentHearts: newHearts,
     });
 
-    // ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → เปิดเลขสุดท้ายอัตโนมัติ
+    // GUARD: ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → เปิดเลขสุดท้ายอัตโนมัติ
+    // ต้องเช็คให้แน่ใจว่า remainingAfterReveal.length === 1 จริงๆ
     if (remainingAfterReveal.length === 1 && newHearts > 0) {
       const lastNumber = remainingAfterReveal[0];
+
+      console.log('🚨 AUTO-REVEAL TRIGGERED:', {
+        lastNumber,
+        totalBefore: unrevealedNumbers.length,
+        revealingNow: numbersToReveal.length,
+        remainingAfter: remainingAfterReveal.length,
+        calculation: `${unrevealedNumbers.length} - ${numbersToReveal.length} = ${remainingAfterReveal.length}`
+      });
+
       newRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
 
       // Mark เลขสุดท้ายว่าเปิดแล้ว (ใน batch)
@@ -1114,6 +1126,12 @@ export async function revealAndCheck(
       });
 
       console.log('✅ Auto-revealed last number:', lastNumber);
+    } else {
+      console.log('⏭️  Skipping auto-reveal:', {
+        remainingCount: remainingAfterReveal.length,
+        hasHearts: newHearts > 0,
+        reason: remainingAfterReveal.length !== 1 ? 'More than 1 number remaining' : 'No hearts left'
+      });
     }
 
     // 10. ตรวจสอบว่า Level นี้จบหรือยัง

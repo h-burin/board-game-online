@@ -217,16 +217,22 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
   // Handle reveal votes (ไม่ต้อง setState อีกแล้ว - Firestore จะ sync ให้)
   const handleRevealVotes = useCallback(async () => {
-    if (revealing) return;
+    if (revealing) {
+      console.log('⏭️  Skipping reveal - already revealing');
+      return;
+    }
 
+    console.log('🚀 handleRevealVotes called');
     setRevealing(true);
     try {
-      await fetch(`/api/games/ito/${sessionId}/reveal`, {
+      const response = await fetch(`/api/games/ito/${sessionId}/reveal`, {
         method: "POST",
       });
+      const data = await response.json();
+      console.log('✅ Reveal API response:', data);
       // ไม่ต้อง setLastRevealResult อีกแล้ว เพราะ Firestore จะ update และ useItoGame จะดึงมาให้
     } catch (error) {
-      console.error('Reveal error:', error);
+      console.error('❌ Reveal error:', error);
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
@@ -309,6 +315,12 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       voteCount === totalPlayers &&
       voteCount > 0
     ) {
+      console.log('🎯 Auto-reveal triggered: All players voted', {
+        totalPlayers,
+        voteCount,
+        hasUnrevealedAnswersToVote,
+        allPlayersHaveAllAnswers
+      });
       handleRevealVotes();
     }
   }, [voteCount, gameState, playerAnswers, revealing, handleRevealVotes, votesLoading]);
@@ -328,6 +340,11 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       gameState.phase === "voting" &&
       playerAnswers.length > 0
     ) {
+      console.log('⏰ Auto-reveal triggered: Time ran out', {
+        timeLeft,
+        phase: gameState.phase,
+        playerAnswersCount: playerAnswers.length
+      });
       handleRevealVotes();
     }
   }, [timeLeft, gameState, revealing, playerAnswers, handleRevealVotes]);
