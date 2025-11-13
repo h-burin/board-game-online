@@ -1,6 +1,8 @@
 /**
  * API Route: Reveal ITO Game Votes
  * POST /api/games/ito/[sessionId]/reveal
+ *
+ * Handles vote counting and number reveal with auto-reveal logic
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,7 +17,7 @@ export async function POST(
   try {
     const { sessionId } = await context.params;
 
-    // GUARD: ตรวจสอบว่า phase เป็น 'voting' ก่อนเปิดเผยผล
+    // Guard: Validate game exists and phase is 'voting'
     const sessionRef = doc(db, 'game_sessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
@@ -29,22 +31,17 @@ export async function POST(
     const gameState = sessionSnap.data();
 
     if (gameState.phase !== 'voting') {
-      console.warn('⚠️ Reveal called but phase is not voting:', {
-        currentPhase: gameState.phase,
-        sessionId
-      });
       return NextResponse.json(
         { success: false, error: `Cannot reveal from phase: ${gameState.phase}` },
         { status: 400 }
       );
     }
 
-    // 1. นับคะแนนโหวต
+    // Count votes to determine which number to reveal
     let winner = await countVotes(sessionId);
 
-    // 1.1 ถ้าไม่มีใคร vote เลย → สุ่มเลือก
+    // Fallback: If no votes, randomly select an unrevealed answer
     if (!winner) {
-      console.log('⚠️ No votes found, randomly selecting an unrevealed answer...');
       winner = await getRandomUnrevealedAnswer(sessionId);
 
       if (!winner) {
@@ -55,7 +52,7 @@ export async function POST(
       }
     }
 
-    // 2. เปิดเผยผลและตรวจสอบความถูกต้อง
+    // Reveal and check correctness (includes auto-reveal logic)
     const result = await revealAndCheck(sessionId, winner.playerId, winner.answerIndex);
 
     if (!result) {
@@ -65,8 +62,6 @@ export async function POST(
       );
     }
 
-
-    // 3. ส่งผลกลับไป (ฝั่ง client จะจัดการเปลี่ยน phase เอง)
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

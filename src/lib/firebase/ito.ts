@@ -1030,9 +1030,8 @@ export async function revealAndCheck(
       };
     }
 
-    // 4. รวบรวมข้อมูลเลขทั้งหมด
+    // 4. รวบรวมเลขที่ยังไม่ได้เปิด
     const unrevealedNumbers: number[] = [];
-
     answersSnap.docs.forEach((doc) => {
       const data = doc.data() as ItoPlayerAnswer;
       if (!data.isRevealed) {
@@ -1040,14 +1039,13 @@ export async function revealAndCheck(
       }
     });
 
-    console.log('🔍 [1] Initial state:', {
-      selectedNumber,
-      unrevealedNumbers: unrevealedNumbers.sort((a, b) => a - b),
-      totalRounds: gameState.totalRounds,
-      currentHearts: gameState.hearts,
-    });
+    // Guard: ต้องมีเลขที่ยังไม่เปิดอย่างน้อย 1 ตัว
+    if (unrevealedNumbers.length === 0) {
+      console.error('No unrevealed numbers found');
+      return null;
+    }
 
-    // 5. หาเลขที่น้อยที่สุดจากที่ยังไม่เปิด
+    // 5. หาเลขที่น้อยที่สุด และคำนวณผลการโหวต
     const smallestNumber = Math.min(...unrevealedNumbers);
     const isCorrect = selectedNumber === smallestNumber;
 
@@ -1059,19 +1057,10 @@ export async function revealAndCheck(
     // 7. หาเลขทั้งหมดที่ต้องเปิด (เลข ≤ selectedNumber)
     const numbersToReveal = unrevealedNumbers.filter((num) => num <= selectedNumber);
 
-    console.log('🔍 [2] Reveal decision:', {
-      smallestNumber,
-      isCorrect,
-      skippedNumbers,
-      heartsLost,
-      newHearts,
-      numbersToReveal,
-    });
-
-    // 8. ใช้ Batch Write เพื่อ update ทุกอย่างพร้อมกัน (atomic)
+    // 8. Batch Write: Update ทุกอย่างแบบ atomic
     const batch = writeBatch(db);
 
-    // Mark ทุกเลขที่ต้องเปิด
+    // 8.1 Mark เลขที่ต้องเปิดทั้งหมด
     answersSnap.docs.forEach((doc) => {
       const data = doc.data() as ItoPlayerAnswer;
       if (!data.isRevealed && numbersToReveal.includes(data.number)) {
@@ -1083,38 +1072,20 @@ export async function revealAndCheck(
       }
     });
 
-    // 9. คำนวณ game state ใหม่
+    // 9. Calculate new game state
     let newRevealedNumbers = [...gameState.revealedNumbers, ...numbersToReveal].sort((a, b) => a - b);
     const newRound = gameState.currentRound + 1;
 
-    // 9.1 Auto-reveal เลขสุดท้าย (ถ้ายังมีหัวใจและเหลือเลข 1 ตัว)
+    // 10. Auto-reveal logic: เปิดเลขสุดท้ายอัตโนมัติถ้าเหลือ 1 ตัว
+    // คำนวณจำนวนเลขที่เหลือหลังจาก reveal ครั้งนี้
     const remainingAfterReveal = unrevealedNumbers.filter((num) => !numbersToReveal.includes(num));
 
-    console.log('🔍 [3] Auto-reveal check:', {
-      unrevealedBefore: unrevealedNumbers.sort((a, b) => a - b),
-      justRevealed: numbersToReveal.sort((a, b) => a - b),
-      remainingAfter: remainingAfterReveal.sort((a, b) => a - b),
-      remainingCount: remainingAfterReveal.length,
-      shouldAutoReveal: remainingAfterReveal.length === 1 && newHearts > 0,
-      currentHearts: newHearts,
-    });
-
-    // GUARD: ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → เปิดเลขสุดท้ายอัตโนมัติ
-    // ต้องเช็คให้แน่ใจว่า remainingAfterReveal.length === 1 จริงๆ
+    // Guard: ถ้าเหลือเลข 1 ตัว และยังมีหัวใจ → auto-reveal เลขสุดท้าย
     if (remainingAfterReveal.length === 1 && newHearts > 0) {
       const lastNumber = remainingAfterReveal[0];
-
-      console.log('🚨 AUTO-REVEAL TRIGGERED:', {
-        lastNumber,
-        totalBefore: unrevealedNumbers.length,
-        revealingNow: numbersToReveal.length,
-        remainingAfter: remainingAfterReveal.length,
-        calculation: `${unrevealedNumbers.length} - ${numbersToReveal.length} = ${remainingAfterReveal.length}`
-      });
-
       newRevealedNumbers = [...newRevealedNumbers, lastNumber].sort((a, b) => a - b);
 
-      // Mark เลขสุดท้ายว่าเปิดแล้ว (ใน batch)
+      // Mark เลขสุดท้ายในฐานข้อมูล
       answersSnap.docs.forEach((doc) => {
         const data = doc.data() as ItoPlayerAnswer;
         if (data.number === lastNumber && !data.isRevealed) {
@@ -1124,37 +1095,19 @@ export async function revealAndCheck(
           });
         }
       });
-
-      console.log('✅ Auto-revealed last number:', lastNumber);
-    } else {
-      console.log('⏭️  Skipping auto-reveal:', {
-        remainingCount: remainingAfterReveal.length,
-        hasHearts: newHearts > 0,
-        reason: remainingAfterReveal.length !== 1 ? 'More than 1 number remaining' : 'No hearts left'
-      });
     }
 
-    // 10. ตรวจสอบว่า Level นี้จบหรือยัง
+    // 11. Determine game status
     const isLevelComplete = newRevealedNumbers.length >= gameState.totalRounds;
-
-    // กำหนด status
     let newStatus: 'playing' | 'won' | 'lost' = 'playing';
+
     if (newHearts === 0) {
       newStatus = 'lost';
     } else if (isLevelComplete && gameState.currentLevel >= gameState.totalLevels) {
       newStatus = 'won';
     }
 
-    console.log('🔍 [4] Final state:', {
-      revealedNumbers: newRevealedNumbers,
-      revealedCount: newRevealedNumbers.length,
-      totalRounds: gameState.totalRounds,
-      isLevelComplete,
-      newStatus,
-      newHearts,
-    });
-
-    // 11. Update game state (ใช้ batch เพื่อ atomic update)
+    // 12. Update game session state
     batch.update(sessionRef, {
       hearts: newHearts,
       currentRound: newRound,
@@ -1170,26 +1123,13 @@ export async function revealAndCheck(
       updatedAt: serverTimestamp(),
     });
 
-    // 12. Commit batch (atomic operation)
+    // 13. Commit all changes atomically
     await batch.commit();
-    console.log('✅ Batch committed: Updated answers + game state');
 
-    // 13. ลบ votes collection เพื่อเริ่มรอบใหม่
+    // 14. Clean up votes for next round
     const votesRef = collection(db, `game_sessions/${sessionId}/votes`);
     const votesSnap = await getDocs(votesRef);
     votesSnap.docs.forEach(async (docSnap) => await deleteDoc(docSnap.ref));
-
-    console.log('✅ Reveal completed:', {
-      selectedNumber,
-      smallestNumber,
-      isCorrect,
-      heartsLost,
-      newHearts,
-      isLevelComplete,
-      newStatus,
-      revealedCount: newRevealedNumbers.length,
-      totalRounds: gameState.totalRounds,
-    });
 
     return {
       success: true,

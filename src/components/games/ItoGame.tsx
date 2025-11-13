@@ -215,24 +215,18 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     setSubmitting(false);
   };
 
-  // Handle reveal votes (ไม่ต้อง setState อีกแล้ว - Firestore จะ sync ให้)
+  // Handle reveal votes
   const handleRevealVotes = useCallback(async () => {
-    if (revealing) {
-      console.log('⏭️  Skipping reveal - already revealing');
-      return;
-    }
+    // Guard: Prevent multiple simultaneous reveals
+    if (revealing) return;
 
-    console.log('🚀 handleRevealVotes called');
     setRevealing(true);
     try {
-      const response = await fetch(`/api/games/ito/${sessionId}/reveal`, {
+      await fetch(`/api/games/ito/${sessionId}/reveal`, {
         method: "POST",
       });
-      const data = await response.json();
-      console.log('✅ Reveal API response:', data);
-      // ไม่ต้อง setLastRevealResult อีกแล้ว เพราะ Firestore จะ update และ useItoGame จะดึงมาให้
     } catch (error) {
-      console.error('❌ Reveal error:', error);
+      console.error('Reveal error:', error);
     } finally {
       setTimeout(() => setRevealing(false), 2000);
     }
@@ -241,11 +235,9 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
   // Reset flags when entering voting phase
   useEffect(() => {
     if (gameState?.phase === "voting") {
-      // ไม่ต้อง setLastRevealResult อีกแล้ว เพราะ Firestore จะ clear ให้ใน startVotingPhase
-      // Reset flag และ timer เมื่อเข้า voting phase ใหม่
       prevVoteCountRef.current = 0;
       hasLoadedVotesRef.current = false;
-      mountTimeRef.current = Date.now(); // Reset timer สำหรับ voting phase ใหม่
+      mountTimeRef.current = Date.now();
     }
   }, [gameState?.phase]);
 
@@ -262,52 +254,48 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
     }
   }, [votes, gameState, playerId, selectedAnswerId]);
 
-  // Auto-check if all votes submitted
+  // Auto-reveal when all players have voted
   useEffect(() => {
-    if (!gameState || gameState.phase !== "voting" || revealing) return;
-    if (votesLoading) return;
+    if (!gameState || gameState.phase !== "voting" || revealing || votesLoading) return;
 
-    // ห้าม auto-reveal ภายใน 2 วินาทีหลัง mount (ป้องกัน F5)
+    // Guard: Prevent auto-reveal within 2 seconds of mount (F5 protection)
     const timeSinceMount = Date.now() - mountTimeRef.current;
     if (timeSinceMount < 2000) return;
 
-    // เมื่อ votesLoading เปลี่ยนจาก true → false ครั้งแรก = initial load
+    // Track initial vote load
     if (!hasLoadedVotesRef.current) {
       hasLoadedVotesRef.current = true;
       prevVoteCountRef.current = voteCount;
       return;
     }
 
-    // นับจำนวนผู้เล่นและคำตอบที่คาดหวัง
-    const uniquePlayerIds = Array.from(
-      new Set(playerAnswers.map((a) => a.playerId))
-    );
+    // Count players and validate game state
+    const uniquePlayerIds = Array.from(new Set(playerAnswers.map((a) => a.playerId)));
     const totalPlayers = uniquePlayerIds.length;
     const expectedAnswersPerPlayer = gameState.currentLevel;
 
-    // เช็คว่า voteCount เพิ่มขึ้นจริงๆ (มีคนโหวตเพิ่ม)
+    // Guard: Ensure vote count is increasing
     if (voteCount < prevVoteCountRef.current) {
       prevVoteCountRef.current = voteCount;
       return;
     }
 
-    // ถ้า voteCount ไม่เปลี่ยน และยังไม่ครบทุกคน ให้ return
+    // Guard: Wait until all players have voted
     if (voteCount === prevVoteCountRef.current && voteCount < totalPlayers) {
       return;
     }
 
     prevVoteCountRef.current = voteCount;
 
-    // เช็คว่าแต่ละคนมีคำตอบที่ยังไม่เปิดอย่างน้อย 1 ตัว
+    // Validate game can continue
     const unrevealedAnswers = playerAnswers.filter(a => !a.isRevealed);
     const hasUnrevealedAnswersToVote = unrevealedAnswers.length > 0;
-
-    // เช็คว่าทุกคนมีคำตอบครบสำหรับ level นี้ (นับรวมที่เปิดแล้ว)
     const allPlayersHaveAllAnswers = uniquePlayerIds.every(playerId => {
       const playerTotalAnswers = playerAnswers.filter(a => a.playerId === playerId);
       return playerTotalAnswers.length === expectedAnswersPerPlayer;
     });
 
+    // Trigger reveal when conditions are met
     if (
       totalPlayers >= 2 &&
       hasUnrevealedAnswersToVote &&
@@ -315,36 +303,24 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       voteCount === totalPlayers &&
       voteCount > 0
     ) {
-      console.log('🎯 Auto-reveal triggered: All players voted', {
-        totalPlayers,
-        voteCount,
-        hasUnrevealedAnswersToVote,
-        allPlayersHaveAllAnswers
-      });
       handleRevealVotes();
     }
   }, [voteCount, gameState, playerAnswers, revealing, handleRevealVotes, votesLoading]);
 
-  // Auto-reveal when time runs out
+  // Auto-reveal when voting timer expires
   useEffect(() => {
     if (!gameState || revealing) return;
 
-    // ป้องกัน auto-reveal เมื่อเพิ่ง mount (ต้องรอให้ load เวลาจริงจาก Firebase ก่อน)
+    // Guard: Prevent auto-reveal within 2 seconds of mount
     const timeSinceMount = Date.now() - mountTimeRef.current;
     if (timeSinceMount < 2000) return;
 
-    // เมื่อหมดเวลา และต้องอยู่ใน voting phase จริงๆ
-    // ไม่ต้องเช็ค voteCount > 0 อีกต่อไป (API จะจัดการกรณีไม่มี vote ให้)
+    // Trigger reveal when time is up
     if (
       timeLeft === 0 &&
       gameState.phase === "voting" &&
       playerAnswers.length > 0
     ) {
-      console.log('⏰ Auto-reveal triggered: Time ran out', {
-        timeLeft,
-        phase: gameState.phase,
-        playerAnswersCount: playerAnswers.length
-      });
       handleRevealVotes();
     }
   }, [timeLeft, gameState, revealing, playerAnswers, handleRevealVotes]);
@@ -385,19 +361,6 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
       const allRevealedInLevel =
         gameState.revealedNumbers.length >= gameState.totalRounds;
 
-      console.log('🎮 [Frontend] Auto-transition check:', {
-        phase: gameState.phase,
-        status: gameState.status,
-        revealedCount: gameState.revealedNumbers.length,
-        totalRounds: gameState.totalRounds,
-        revealedNumbers: gameState.revealedNumbers,
-        allRevealedInLevel,
-        willTransitionTo:
-          gameState.status === "lost" ? "finished (lost)" :
-          gameState.status === "won" ? "finished (won)" :
-          allRevealedInLevel ? "levelComplete" : "voting"
-      });
-
       if (gameState.status === "lost") {
         await updateDoc(sessionRef, {
           phase: "finished",
@@ -433,16 +396,10 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       if (readyCount === totalPlayers && totalPlayers > 0) {
         try {
-          // ตรวจสอบว่า phase ถูกต้อง (ต้องเป็น levelComplete จริงๆ)
-          if (gameState.phase !== "levelComplete") {
-            console.warn('⚠️ Waiting for phase transition to levelComplete...', {
-              currentPhase: gameState.phase,
-              readyCount,
-              totalPlayers,
-            });
-            return; // รอให้ phase เปลี่ยนก่อน
-          }
+          // Guard: Ensure phase is levelComplete before proceeding
+          if (gameState.phase !== "levelComplete") return;
 
+          // All levels completed - finish game
           if (gameState.currentLevel >= gameState.totalLevels) {
             const sessionRef = doc(db, "game_sessions", sessionId);
             await updateDoc(sessionRef, {
@@ -453,12 +410,7 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             return;
           }
 
-          console.log('🚀 Starting next level...', {
-            currentLevel: gameState.currentLevel,
-            nextLevel: gameState.currentLevel + 1,
-            phase: gameState.phase,
-          });
-
+          // Start next level
           const response = await fetch(
             `/api/games/ito/${sessionId}/nextLevel`,
             {
@@ -466,15 +418,12 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             }
           );
 
-          const result = await response.json();
-
           if (!response.ok) {
-            console.error('❌ Failed to start next level:', result);
-          } else {
-            console.log('✅ Next level started:', result);
+            const result = await response.json();
+            console.error('Failed to start next level:', result);
           }
         } catch (error) {
-          console.error('❌ Error in checkReady:', error);
+          console.error('Error in checkReady:', error);
         }
       }
     };
