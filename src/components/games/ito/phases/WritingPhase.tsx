@@ -4,7 +4,7 @@
  */
 
 "use client";
-
+import { LuChevronRight, LuChevronDown } from "react-icons/lu";
 import { useState } from "react";
 import RevealedNumbersList from "../RevealedNumbersList";
 import {
@@ -62,8 +62,9 @@ export default function WritingPhase({
     expectedAnswersPerPlayer
   );
 
-  const { playersCompleted, playersNotCompleted } =
-    separateCompletedPlayers(playerSubmissionStatus);
+  const { playersCompleted, playersNotCompleted } = separateCompletedPlayers(
+    playerSubmissionStatus
+  );
 
   // คำนวณจำนวนคำใบ้ที่ส่งแล้ว vs จำนวนทั้งหมด
   const totalHintsExpected = totalPlayers * expectedAnswersPerPlayer;
@@ -125,9 +126,7 @@ export default function WritingPhase({
                 {!isSubmitted ? (
                   <button
                     onClick={() => handleSubmitAnswer(ans.answerIndex)}
-                    disabled={
-                      !answers[ans.answerIndex]?.trim() || submitting
-                    }
+                    disabled={!answers[ans.answerIndex]?.trim() || submitting}
                     className="mt-2 md:mt-3 w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-2.5 md:py-3 rounded-xl transition-all transform hover:scale-105 text-sm md:text-base"
                   >
                     {submitting ? "กำลังส่ง..." : "ส่งคำตอบ"}
@@ -152,28 +151,29 @@ export default function WritingPhase({
       </div>
 
       {/* ปุ่มส่งทั้งหมด - แสดงเฉพาะเมื่อมีหลายคำตอบและพิมพ์ครบแล้ว */}
-      {myAnswers.length > 1 && (() => {
-        const allFilled = myAnswers.every(
-          (ans) => answers[ans.answerIndex]?.trim()
-        );
-        const hasUnsubmitted = myAnswers.some((ans) => !ans.submittedAt);
+      {myAnswers.length > 1 &&
+        (() => {
+          const allFilled = myAnswers.every((ans) =>
+            answers[ans.answerIndex]?.trim()
+          );
+          const hasUnsubmitted = myAnswers.some((ans) => !ans.submittedAt);
 
-        return allFilled && hasUnsubmitted ? (
-          <button
-            onClick={async () => {
-              for (const ans of myAnswers) {
-                if (!ans.submittedAt && answers[ans.answerIndex]?.trim()) {
-                  await handleSubmitAnswer(ans.answerIndex);
+          return allFilled && hasUnsubmitted ? (
+            <button
+              onClick={async () => {
+                for (const ans of myAnswers) {
+                  if (!ans.submittedAt && answers[ans.answerIndex]?.trim()) {
+                    await handleSubmitAnswer(ans.answerIndex);
+                  }
                 }
-              }
-            }}
-            disabled={submitting}
-            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 text-base md:text-lg shadow-lg mt-4 md:mt-6"
-          >
-            {submitting ? "กำลังส่ง..." : "ส่งคำใบ้ทั้งหมด"}
-          </button>
-        ) : null;
-      })()}
+              }}
+              disabled={submitting}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed text-white font-bold py-3 md:py-4 rounded-xl transition-all transform hover:scale-105 text-base md:text-lg shadow-lg mt-4 md:mt-6"
+            >
+              {submitting ? "กำลังส่ง..." : "ส่งคำใบ้ทั้งหมด"}
+            </button>
+          ) : null;
+        })()}
 
       {/* แสดงสถานะรวม */}
       {myAnswers.every((ans) => ans.submittedAt) && (
@@ -189,8 +189,12 @@ export default function WritingPhase({
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs"
         >
           <span>💭</span>
-          <span>สถานะการส่งคำใบ้: {totalHintsSubmitted}/{totalHintsExpected}</span>
-          <span className="ml-1">{showStatus ? "▼" : "▶"}</span>
+          <span>
+            สถานะการส่งคำใบ้: {totalHintsSubmitted}/{totalHintsExpected}
+          </span>
+          <span className="ml-1">
+            {showStatus ? <LuChevronDown /> : <LuChevronRight />}
+          </span>
         </button>
 
         {showStatus && (

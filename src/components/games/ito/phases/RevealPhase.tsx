@@ -1,6 +1,6 @@
 /**
- * Reveal Phase Component
- * Phase สำหรับแสดงผลการโหวต
+ * Reveal Phase Component (Mobile-First Redesign)
+ * Optimized for single-screen view without scrolling
  */
 
 "use client";
@@ -23,7 +23,7 @@ interface RevealPhaseProps {
     status: string;
   };
   lastRevealResult: {
-    number: number; // เลขที่โหวต
+    number: number;
     isCorrect: boolean;
     heartsLost: number;
     newHearts: number;
@@ -37,183 +37,150 @@ export default function RevealPhase({
 }: RevealPhaseProps) {
   const [countdown, setCountdown] = useState(8);
 
-  // Countdown timer (5 วินาที)
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => Math.max(0, prev - 1));
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
-  if (!lastRevealResult) {
-    return null;
-  }
+  if (!lastRevealResult) return null;
 
-  // ใช้เลขที่โหวตจริงๆ จาก API (ไม่ใช่ lastRevealedNumber)
   const votedNumber = lastRevealResult.number;
-  const votedAnswer = playerAnswers.find(
-    (a) => a.number === votedNumber
-  );
-
-  if (!votedAnswer) {
-    return null;
-  }
+  const votedAnswer = playerAnswers.find((a) => a.number === votedNumber);
+  if (!votedAnswer) return null;
 
   const isCorrect = lastRevealResult.isCorrect;
   const heartsLost = lastRevealResult.heartsLost;
 
-  // หาเลขทั้งหมดที่เปิดในรอบนี้ (เลขที่ <= เลขที่โหวต)
+  // หาเลขที่เปิดในรอบนี้
   const revealedThisRound = playerAnswers
     .filter((a) => a.isRevealed && a.number <= votedNumber)
     .map((a) => a.number)
-    .filter((num, index, self) => self.indexOf(num) === index) // unique
+    .filter((num, index, self) => self.indexOf(num) === index)
     .sort((a, b) => a - b);
 
-  // หาเลขที่น้อยกว่าที่ถูกข้าม (เฉพาะเมื่อผิด)
-  const skippedNumbers = isCorrect === false
+  const skippedNumbers = !isCorrect
     ? revealedThisRound.filter((num) => num < votedNumber)
     : [];
 
+  const isAutoRevealed = revealedThisRound.length > 1;
+
   return (
     <>
-      {/* Backdrop Overlay */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] animate-fadeIn" />
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60]" />
 
-      {/* Popup Modal */}
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 animate-fadeIn">
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl md:rounded-3xl shadow-2xl p-4 md:p-8 border border-white/20 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <h3 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 text-center">
-            ผลการโหวต
-          </h3>
+      {/* Modal - Mobile Optimized */}
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-3">
+        <div className="bg-gradient-to-br from-purple-600/20 to-pink-600/20 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 w-full max-w-md">
 
-      {/* Revealed Card */}
-      <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl md:rounded-2xl p-4 md:p-8 mb-4 md:mb-6 border-2 border-purple-400">
-        {/* เลขที่ทีมโหวต - แสดงเด่นที่สุด */}
-        <div className="bg-white/30 rounded-xl md:rounded-2xl p-4 md:p-8 mb-3 md:mb-4 border-2 border-yellow-400">
-          <div className="text-center">
-            <div className="text-white/90 text-base md:text-lg mb-2 md:mb-3 font-semibold">
-              🎯 ทีมโหวตเลข:
+          {/* Main Content - Compact Layout */}
+          <div className="p-5 space-y-3">
+
+            {/* Header: Result Status */}
+            <div className="text-center">
+              <div className={`text-3xl font-bold ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                {isCorrect ? 'ถูกต้อง!' : 'ผิด!'}
+              </div>
             </div>
+
+            {/* Voted Number Card - Compact */}
             <div className={`
-              text-6xl md:text-8xl font-bold mb-3 md:mb-4
+              rounded-xl p-4 border-2
               ${isCorrect
-                ? 'text-green-300 drop-shadow-[0_0_20px_rgba(134,239,172,0.8)] animate-pulse'
-                : 'text-red-300 drop-shadow-[0_0_20px_rgba(252,165,165,0.8)] animate-pulse'
+                ? 'bg-green-500/20 border-green-400/50'
+                : 'bg-red-500/20 border-red-400/50'
               }
             `}>
-              {votedAnswer.number}
-            </div>
-            <div className="text-white/70 text-xs md:text-sm mb-1">
-              คำใบ้ของ {votedAnswer.playerName}:
-            </div>
-            <div className="text-white text-base md:text-lg italic">
-              &quot;{votedAnswer.answer}&quot;
-            </div>
-          </div>
-        </div>
+              {/* Number + Hint in single row */}
+              <div className="flex items-center gap-4">
+                {/* Number */}
+                <div className={`
+                  text-5xl font-bold flex-shrink-0
+                  ${isCorrect ? 'text-green-300' : 'text-red-300'}
+                `}>
+                  {votedAnswer.number}
+                </div>
 
-        {/* แสดงเลขที่ข้ามไป (ถ้ามี) */}
-        {skippedNumbers.length > 0 && (
-          <div className="bg-red-500/20 rounded-lg md:rounded-xl p-4 md:p-6 border-2 border-red-400/50">
-            <div className="text-center">
-              <div className="text-red-300 text-sm md:text-base mb-2 md:mb-3 font-semibold">
-                ❌ แต่ข้ามเลขที่น้อยกว่าไปแล้ว:
+                {/* Hint */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-white/60 text-xs mb-0.5">
+                    {votedAnswer.playerName}
+                  </div>
+                  <div className="text-white text-sm italic truncate">
+                    &quot;{votedAnswer.answer}&quot;
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-                {skippedNumbers.map((num, i) => (
+
+              {/* Skipped Numbers (if wrong) */}
+              {skippedNumbers.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-red-400/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-red-300 text-xs">ข้ามไป:</span>
+                    <div className="flex gap-2">
+                      {skippedNumbers.map((num) => (
+                        <span key={num} className="text-red-300 text-lg font-bold">
+                          {num}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-red-300/80 text-xs text-right mt-1">
+                    -❤️ {heartsLost} ดวง
+                  </div>
+                </div>
+              )}
+
+              {/* Auto-reveal indicator */}
+              {isAutoRevealed && (
+                <div className="text-white/40 text-xs text-center mt-2 pt-2 border-t border-white/10">
+                  ⚡ เปิดเลขสุดท้ายอัตโนมัติ
+                </div>
+              )}
+            </div>
+
+            {/* Progress: Revealed Numbers - Minimal */}
+            <div className="bg-white/5 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-white/70 text-xs">เปิดแล้ว:</span>
+                <span className="text-white/90 text-sm font-bold">
+                  {gameState.revealedNumbers.length}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {gameState.revealedNumbers.map((num, i) => (
                   <div
                     key={i}
-                    className="text-4xl md:text-5xl font-bold text-red-300"
+                    className={`
+                      px-2.5 py-1 rounded text-sm font-bold
+                      ${i === gameState.revealedNumbers.length - 1
+                        ? 'bg-yellow-500/50 text-yellow-100 border border-yellow-400'
+                        : 'bg-white/10 text-white/70'
+                      }
+                    `}
                   >
                     {num}
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        )}
 
-        {revealedThisRound.length > 1 && (
-          <div className="text-white/50 text-xs md:text-sm text-center mt-2 md:mt-3 mb-2 md:mb-3">
-            (เปิดเลขสุดท้ายอัตโนมัติ)
-          </div>
-        )}
-
-        {/* Correct/Incorrect */}
-        {isCorrect !== undefined && (
-          <>
-            {isCorrect ? (
-              <div className="text-center">
-                <div className="text-5xl md:text-6xl mb-2 animate-bounce">✅</div>
-                <div className="text-xl md:text-2xl font-bold text-green-400">
-                  ถูกต้อง!
-                </div>
-                <div className="text-white/70 mt-2 text-sm md:text-base">
-                  นี่คือตัวเลขที่น้อยที่สุด
-                </div>
+            {/* Countdown - Compact */}
+            <div className="text-center pt-2">
+              <div className="text-3xl font-bold text-yellow-300 mb-1">
+                {countdown}
               </div>
-            ) : (
-              <div className="text-center">
-                <div className="text-5xl md:text-6xl mb-2 animate-pulse">❌</div>
-                <div className="text-xl md:text-2xl font-bold text-red-400">ผิด!</div>
-                <div className="text-white/70 mt-2 text-sm md:text-base">
-                  ข้ามตัวเลขไป - เสียหัวใจ {heartsLost} ดวง
-                </div>
-                {/* แสดงหัวใจที่หาย animation */}
-                {heartsLost > 0 && (
-                  <div className="flex justify-center gap-2 mt-4">
-                    {Array.from({ length: heartsLost }).map((_, i) => (
-                      <span
-                        key={i}
-                        className="text-4xl md:text-5xl animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s` }}
-                      >
-                        💔
-                      </span>
-                    ))}
-                  </div>
-                )}
+              <div className="text-white/50 text-xs">
+                {gameState.status === "won" || gameState.status === "lost"
+                  ? "กำลังสรุปผล..."
+                  : "เตรียมรอบต่อไป..."
+                }
               </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* Revealed Numbers Progress */}
-      <div className="bg-white/5 rounded-lg md:rounded-xl p-4 md:p-6">
-        <h4 className="text-white font-bold mb-2 md:mb-3 text-center text-sm md:text-base">
-          ตัวเลขที่เปิดแล้ว:
-        </h4>
-        <div className="flex flex-wrap justify-center gap-2">
-          {gameState.revealedNumbers.map((num, i) => (
-            <div
-              key={i}
-              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-lg md:text-xl font-bold ${
-                i === gameState.revealedNumbers.length - 1
-                  ? "bg-yellow-500/50 text-yellow-100 border-2 border-yellow-400"
-                  : "bg-white/20 text-white"
-              }`}
-            >
-              {num}
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Auto-transition message with countdown */}
-      <div className="text-center mt-4 md:mt-6">
-        <div className="text-4xl md:text-5xl font-bold text-yellow-300 mb-2 md:mb-3">
-          {countdown}
-        </div>
-        <div className="text-white/70 text-sm md:text-base">
-          {gameState.status === "won" || gameState.status === "lost" ? (
-            <p>กำลังสรุปผล...</p>
-          ) : (
-            <p>กำลังเตรียมรอบต่อไป...</p>
-          )}
-        </div>
-      </div>
+          </div>
         </div>
       </div>
     </>
