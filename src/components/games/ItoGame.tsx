@@ -416,6 +416,16 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
 
       if (readyCount === totalPlayers && totalPlayers > 0) {
         try {
+          // ตรวจสอบว่า phase ถูกต้อง (ต้องเป็น levelComplete จริงๆ)
+          if (gameState.phase !== "levelComplete") {
+            console.warn('⚠️ Waiting for phase transition to levelComplete...', {
+              currentPhase: gameState.phase,
+              readyCount,
+              totalPlayers,
+            });
+            return; // รอให้ phase เปลี่ยนก่อน
+          }
+
           if (gameState.currentLevel >= gameState.totalLevels) {
             const sessionRef = doc(db, "game_sessions", sessionId);
             await updateDoc(sessionRef, {
@@ -426,6 +436,12 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             return;
           }
 
+          console.log('🚀 Starting next level...', {
+            currentLevel: gameState.currentLevel,
+            nextLevel: gameState.currentLevel + 1,
+            phase: gameState.phase,
+          });
+
           const response = await fetch(
             `/api/games/ito/${sessionId}/nextLevel`,
             {
@@ -433,9 +449,15 @@ export default function ItoGame({ sessionId, playerId }: ItoGameProps) {
             }
           );
 
-          await response.json();
-        } catch {
-          // Error handling
+          const result = await response.json();
+
+          if (!response.ok) {
+            console.error('❌ Failed to start next level:', result);
+          } else {
+            console.log('✅ Next level started:', result);
+          }
+        } catch (error) {
+          console.error('❌ Error in checkReady:', error);
         }
       }
     };
